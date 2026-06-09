@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Copy, CheckCircle2, Download, FileText, Database, ChevronUp, ChevronDown } from "lucide-react";
+import { Copy, CheckCircle2, Download, FileText, ChevronUp, ChevronDown } from "lucide-react";
 import { toast } from "sonner";
 import { Streamdown } from "streamdown";
 
@@ -44,12 +44,6 @@ export default function ScriptOutput({ content, onRetry, isRetrying }: ScriptOut
     toast.success("Markdown 匯出成功");
   };
 
-  const handleSaveToNotion = () => {
-    toast.info("存入庫房功能需要設定 Notion Integration Token，請至 API 設定中填入。", {
-      duration: 5000,
-    });
-  };
-
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
@@ -76,14 +70,6 @@ export default function ScriptOutput({ content, onRetry, isRetrying }: ScriptOut
           </Button>
           <Button variant="ghost" size="sm" onClick={handleExportTxt} className="text-xs h-8">
             <Download className="w-3.5 h-3.5 mr-1" /> .txt
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSaveToNotion}
-            className="text-xs h-8 text-blue-400 hover:text-blue-300 hover:bg-blue-500/10"
-          >
-            <Database className="w-3.5 h-3.5 mr-1" /> 存入庫房
           </Button>
           {onRetry && (
             <Button

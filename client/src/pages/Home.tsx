@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
@@ -6,53 +6,19 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, Settings, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, FileDown } from "lucide-react";
+import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import ScriptOutput from "@/components/ScriptOutput";
-import { CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, buildGptPrompt, buildClaudePrompt, buildGptIntegratePrompt, type PromptInput } from "@/lib/prompts";
-
-const INDUSTRIES = [
-  { value: "ecommerce", label: "電商（服飾/配件）" },
-  { value: "beauty", label: "美妝保養" },
-  { value: "food", label: "餐飲" },
-  { value: "fitness", label: "健身/保健" },
-  { value: "education", label: "教育/課程" },
-  { value: "realestate", label: "房地產/室內設計" },
-  { value: "saas", label: "SaaS/工具" },
-  { value: "local", label: "本地服務" },
-];
-
-const FUNNELS = [
-  { value: "tofu", label: "TOFU（冷受眾 - 喚醒問題）" },
-  { value: "mofu", label: "MOFU（溫受眾 - 差異化）" },
-  { value: "bofu", label: "BOFU（熱受眾 - 臨門一腳）" },
-];
-
-const DURATIONS = [
-  { value: "15", label: "15 秒" },
-  { value: "20", label: "20 秒" },
-  { value: "25", label: "25 秒" },
-  { value: "30", label: "30 秒" },
-  { value: "45", label: "45 秒" },
-];
-
-const APPEARANCES = [
-  { value: "person", label: "真人出鏡" },
-  { value: "hands", label: "只露手" },
-  { value: "voiceover", label: "不露臉旁白" },
-  { value: "multi", label: "多人" },
-];
-
-const TONES = [
-  { value: "professional", label: "專業" },
-  { value: "friendly", label: "親切" },
-  { value: "humorous", label: "幽默" },
-  { value: "urgent", label: "急迫" },
-  { value: "storytelling", label: "故事感" },
-];
+import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { getLoginUrl } from "@/const";
+import {
+  INDUSTRIES, FUNNELS, DURATIONS, APPEARANCES, TONES, toLabel,
+  type PromptInput, type IntegrateEngine,
+} from "@shared/scriptTypes";
+import type { ScriptHistory } from "@shared/types";
 
 interface FormData {
   industry: string;
@@ -74,54 +40,28 @@ interface EngineStatus {
   progressLabel: string;
 }
 
-interface HistoryRecord {
-  id: string;
-  timestamp: string;
-  productName: string;
-  industry: string;
-  funnel: string;
-  gptOutput: string;
-  claudeOutput: string;
-  engine: string; // "dual" | "claude_only" | "gpt_only" | "both"
-}
-
-// ========== History Helpers ==========
-const HISTORY_KEY = "meta_script_history";
-
-function loadHistory(): HistoryRecord[] {
-  try {
-    const raw = localStorage.getItem(HISTORY_KEY);
-    return raw ? JSON.parse(raw) : [];
-  } catch {
-    return [];
-  }
-}
-
-function saveHistory(records: HistoryRecord[]) {
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(records.slice(0, 50)));
-}
+const IDLE_STATUS: EngineStatus = {
+  phase: "idle",
+  gptOutput: null,
+  claudeOutput: null,
+  error: null,
+  progress: 0,
+  progressLabel: "",
+};
 
 export default function Home() {
+  const { isAuthenticated, loading: authLoading } = useAuth();
+  const utils = trpc.useUtils();
+
   const [step, setStep] = useState(1);
-  const [showSettings, setShowSettings] = useState(false);
-  const [openaiKey, setOpenaiKey] = useState(() => localStorage.getItem("openai_api_key") || "");
-  const [claudeKey, setClaudeKey] = useState(() => localStorage.getItem("claude_api_key") || "");
-  const [history, setHistory] = useState<HistoryRecord[]>(loadHistory);
-  const [viewingHistory, setViewingHistory] = useState<HistoryRecord | null>(null);
+  const [viewingHistory, setViewingHistory] = useState<ScriptHistory | null>(null);
 
   // Custom Hook Mode
   const [customHookMode, setCustomHookMode] = useState(false);
   const [customHooks, setCustomHooks] = useState("");
-  const [customHookEngine, setCustomHookEngine] = useState<"claude" | "gpt" | "both">("claude");
+  const [customHookEngine, setCustomHookEngine] = useState<IntegrateEngine>("claude");
 
-  const [engineStatus, setEngineStatus] = useState<EngineStatus>({
-    phase: "idle",
-    gptOutput: null,
-    claudeOutput: null,
-    error: null,
-    progress: 0,
-    progressLabel: "",
-  });
+  const [engineStatus, setEngineStatus] = useState<EngineStatus>(IDLE_STATUS);
   const [formData, setFormData] = useState<FormData>({
     industry: "",
     productName: "",
@@ -133,13 +73,47 @@ export default function Home() {
     tone: "",
   });
 
-  // Save keys to localStorage
-  useEffect(() => {
-    if (openaiKey) localStorage.setItem("openai_api_key", openaiKey);
-  }, [openaiKey]);
-  useEffect(() => {
-    if (claudeKey) localStorage.setItem("claude_api_key", claudeKey);
-  }, [claudeKey]);
+  // 體感進度動畫的 rAF 控制
+  const rafRef = useRef<number | null>(null);
+  const stopProgress = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+  };
+  useEffect(() => () => stopProgress(), []);
+
+  // ========== 歷史紀錄（後端持久化） ==========
+  const historyQuery = trpc.script.history.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+  const history = historyQuery.data ?? [];
+
+  const deleteHistoryMutation = trpc.script.deleteHistory.useMutation({
+    onMutate: async ({ id }) => {
+      await utils.script.history.cancel();
+      const prev = utils.script.history.getData();
+      utils.script.history.setData(undefined, (old) => (old ?? []).filter(h => h.id !== id));
+      return { prev };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.prev) utils.script.history.setData(undefined, context.prev);
+      toast.error("刪除失敗，已還原");
+    },
+    onSettled: () => {
+      utils.script.history.invalidate();
+    },
+  });
+
+  // ========== tRPC mutations ==========
+  const dualMutation = trpc.script.generateDual.useMutation();
+  const hooksMutation = trpc.script.generateHooks.useMutation();
+  const integrateMutation = trpc.script.integrate.useMutation();
+
+  const isGenerating =
+    engineStatus.phase === "gpt_generating" || engineStatus.phase === "claude_generating";
 
   const updateForm = (key: keyof FormData, value: string) => {
     setFormData((prev) => ({ ...prev, [key]: value }));
@@ -148,336 +122,160 @@ export default function Home() {
   const isStep1Valid = formData.industry && formData.productName && formData.sellingPoints;
   const isStep2Valid = formData.targetAudience && formData.funnel && formData.duration;
   const isStep3Valid = formData.appearance && formData.tone;
-  const hasKeys = openaiKey && claudeKey;
 
-  // ========== Save to history ==========
-  const saveToHistory = (gptOutput: string, claudeOutput: string, engine: string) => {
-    const record: HistoryRecord = {
-      id: Date.now().toString(36),
-      timestamp: new Date().toLocaleString("zh-TW"),
-      productName: formData.productName,
-      industry: INDUSTRIES.find(i => i.value === formData.industry)?.label || formData.industry,
-      funnel: FUNNELS.find(f => f.value === formData.funnel)?.label?.split("（")[0] || formData.funnel,
-      gptOutput,
-      claudeOutput,
-      engine,
-    };
-    const updated = [record, ...history];
-    setHistory(updated);
-    saveHistory(updated);
-  };
-
-  const deleteHistoryRecord = (id: string) => {
-    const updated = history.filter(h => h.id !== id);
-    setHistory(updated);
-    saveHistory(updated);
-  };
-
-  // ========== Progress Animation ==========
+  // ========== 體感進度動畫（後端為單次回傳，前端模擬進度提升體驗） ==========
   const animateProgress = (from: number, to: number, duration: number, label: string) => {
+    stopProgress();
     const startTime = Date.now();
     const tick = () => {
       const elapsed = Date.now() - startTime;
       const ratio = Math.min(elapsed / duration, 1);
       const current = from + (to - from) * ratio;
       setEngineStatus(prev => ({ ...prev, progress: Math.round(current), progressLabel: label }));
-      if (ratio < 1) requestAnimationFrame(tick);
+      if (ratio < 1) rafRef.current = requestAnimationFrame(tick);
     };
     tick();
   };
 
-  // ========== Helper: 轉換 FormData 為 PromptInput ==========
+  // ========== Helper：FormData → PromptInput（轉中文 label 給後端組 prompt） ==========
   const toPromptInput = (): PromptInput => ({
-    industry: INDUSTRIES.find(i => i.value === formData.industry)?.label || formData.industry,
+    industry: toLabel(INDUSTRIES, formData.industry),
     productName: formData.productName,
     sellingPoints: formData.sellingPoints,
     targetAudience: formData.targetAudience,
-    funnel: FUNNELS.find(f => f.value === formData.funnel)?.label || formData.funnel,
+    funnel: toLabel(FUNNELS, formData.funnel),
     duration: formData.duration,
-    appearance: APPEARANCES.find(a => a.value === formData.appearance)?.label || formData.appearance,
-    tone: TONES.find(t => t.value === formData.tone)?.label || formData.tone,
+    appearance: toLabel(APPEARANCES, formData.appearance),
+    tone: toLabel(TONES, formData.tone),
   });
 
-  // ========== GPT Only - 重新發散 Hook ==========
-  const handleRegenerateHooks = async () => {
-    if (!openaiKey) { setShowSettings(true); return; }
+  // 存庫摘要 meta
+  const buildMeta = () => ({
+    productName: formData.productName,
+    industry: toLabel(INDUSTRIES, formData.industry),
+    funnel: toLabel(FUNNELS, formData.funnel).split("｜")[0],
+  });
 
-    setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", gptOutput: null, error: null, progress: 0, progressLabel: "GPT-4o 正在發散新的 Hook 概念..." }));
-    animateProgress(0, 85, 12000, "GPT-4o 正在發散新的 Hook 概念...");
+  const refreshHistory = () => utils.script.history.invalidate();
+
+  const handleError = (e: unknown, prefix: string) => {
+    stopProgress();
+    const msg = e instanceof Error ? e.message : String(e);
+    setEngineStatus(prev => ({ ...prev, phase: "error", error: `${prefix}：${msg}`, progress: 0, progressLabel: "" }));
+  };
+
+  // ========== 雙引擎核心流程 ==========
+  const handleGenerate = async () => {
+    setViewingHistory(null);
+    setCustomHookMode(false);
+    setEngineStatus({ ...IDLE_STATUS, phase: "gpt_generating", progressLabel: "GPT 正在發散 12 個 Hook 概念..." });
+    animateProgress(0, 95, 30000, "雙引擎運算中：GPT 發散 → Claude 整合...");
 
     try {
-      const gptPrompt = buildGptPrompt(toPromptInput());
-      const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          max_tokens: 4000,
-          temperature: 1.2,
-          messages: [
-            { role: "system", content: GPT_SYSTEM_PROMPT },
-            { role: "user", content: gptPrompt },
-          ],
-        }),
+      const res = await dualMutation.mutateAsync({ input: toPromptInput(), meta: buildMeta() });
+      stopProgress();
+      setEngineStatus({
+        phase: "claude_done",
+        gptOutput: res.gptOutput,
+        claudeOutput: res.finalOutput,
+        error: null,
+        progress: 100,
+        progressLabel: "雙引擎生成完成 ✓",
       });
+      refreshHistory();
+    } catch (e) {
+      handleError(e, "雙引擎生成失敗");
+    }
+  };
 
-      if (!gptResponse.ok) {
-        const err = await gptResponse.text();
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 引擎錯誤 (${gptResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-        return;
-      }
+  // ========== 只跑 GPT 重新發散 Hook ==========
+  const handleRegenerateHooks = async () => {
+    setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", gptOutput: null, claudeOutput: null, error: null, progress: 0, progressLabel: "GPT 正在發散新的 Hook 概念..." }));
+    animateProgress(0, 90, 15000, "GPT 正在發散新的 Hook 概念...");
+    try {
+      const res = await hooksMutation.mutateAsync({ input: toPromptInput() });
+      stopProgress();
+      setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: res.gptOutput, progress: 100, progressLabel: "GPT 發散完成 — 可選擇整合引擎" }));
+    } catch (e) {
+      handleError(e, "GPT 重新發散失敗");
+    }
+  };
 
-      const gptData = await gptResponse.json();
-      const gptText = gptData.choices?.[0]?.message?.content || "";
-      setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: gptText, progress: 100, progressLabel: "GPT 發散完成 — 可選擇整合引擎" }));
-
-    } catch (error: any) {
-      setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 重新發散失敗：${error.message}`, progress: 0, progressLabel: "" }));
+  // ========== 用既有 Hook 重新整合（claude / gpt） ==========
+  const handleReintegrate = async (engine: "claude" | "gpt") => {
+    if (!engineStatus.gptOutput) return;
+    const label = engine === "claude" ? "Claude" : "GPT";
+    setEngineStatus(prev => ({ ...prev, phase: "claude_generating", claudeOutput: null, error: null, progress: 0, progressLabel: `${label} 正在用新 Hook 重新整合腳本...` }));
+    animateProgress(0, 92, 22000, `${label} 正在用新 Hook 重新整合腳本...`);
+    try {
+      const res = await integrateMutation.mutateAsync({
+        input: toPromptInput(),
+        hooks: engineStatus.gptOutput,
+        engine,
+        meta: buildMeta(),
+      });
+      stopProgress();
+      setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: res.finalOutput, progress: 100, progressLabel: `${label} 整合完成 ✓` }));
+      refreshHistory();
+    } catch (e) {
+      handleError(e, `${label} 整合失敗`);
     }
   };
 
   // ========== 自訂 Hook → 選擇引擎整合 ==========
   const handleCustomHookGenerate = async () => {
     if (!customHooks.trim()) return;
-
-    const needClaude = customHookEngine === "claude" || customHookEngine === "both";
-    const needGpt = customHookEngine === "gpt" || customHookEngine === "both";
-
     setViewingHistory(null);
-    setEngineStatus({ phase: "claude_generating", gptOutput: customHooks, claudeOutput: null, error: null, progress: 0, progressLabel: "" });
-
-    let claudeResult = "";
-    let gptResult = "";
-
-    // Claude 整合
-    if (needClaude) {
-      if (!claudeKey) { setShowSettings(true); return; }
-      setEngineStatus(prev => ({ ...prev, phase: "claude_generating", progress: 0, progressLabel: "Claude 正在整合你的自訂 Hook..." }));
-      animateProgress(0, 85, 20000, "Claude 正在整合你的自訂 Hook...");
-
-      try {
-        const claudePrompt = buildClaudePrompt(toPromptInput(), customHooks);
-        const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-api-key": claudeKey,
-            "anthropic-version": "2023-06-01",
-            "anthropic-dangerous-direct-browser-access": "true",
-          },
-          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
-        });
-
-        if (!claudeResponse.ok) {
-          const err = await claudeResponse.text();
-          setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 引擎錯誤 (${claudeResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-          return;
-        }
-
-        const claudeData = await claudeResponse.json();
-        claudeResult = claudeData.content?.[0]?.text || "";
-      } catch (error: any) {
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 整合失敗：${error.message}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-    }
-
-    // GPT 整合
-    if (needGpt) {
-      if (!openaiKey) { setShowSettings(true); return; }
-      setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", progress: needClaude ? 50 : 0, progressLabel: "GPT-4o 正在整合你的自訂 Hook..." }));
-      animateProgress(needClaude ? 50 : 0, needClaude ? 95 : 85, 15000, "GPT-4o 正在整合你的自訂 Hook...");
-
-      try {
-        const gptIntegratePrompt = buildGptIntegratePrompt(toPromptInput(), customHooks);
-        const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-          method: "POST",
-          headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
-          body: JSON.stringify({
-            model: "gpt-4o",
-            max_tokens: 8000,
-            temperature: 0.7,
-            messages: [
-              { role: "system", content: GPT_SYSTEM_PROMPT },
-              { role: "user", content: gptIntegratePrompt },
-            ],
-          }),
-        });
-
-        if (!gptResponse.ok) {
-          const err = await gptResponse.text();
-          setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 整合錯誤 (${gptResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-          return;
-        }
-
-        const gptData = await gptResponse.json();
-        gptResult = gptData.choices?.[0]?.message?.content || "";
-      } catch (error: any) {
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 整合失敗：${error.message}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-    }
-
-    // 組合結果
-    let finalOutput = "";
-    if (needClaude && needGpt) {
-      finalOutput = `# 🟢 Claude 整合版\n\n${claudeResult}\n\n---\n\n# 🟡 GPT 整合版\n\n${gptResult}`;
-    } else if (needClaude) {
-      finalOutput = claudeResult;
-    } else {
-      finalOutput = gptResult;
-    }
-
-    setEngineStatus({ phase: "claude_done", gptOutput: customHooks, claudeOutput: finalOutput, error: null, progress: 100, progressLabel: "整合完成" });
-    saveToHistory(customHooks, finalOutput, customHookEngine === "both" ? "both" : customHookEngine + "_only");
-  };
-
-  // ========== 雙引擎核心邏輯 ==========
-  const handleGenerate = async () => {
-    if (!openaiKey || !claudeKey) { setShowSettings(true); return; }
-
-    setViewingHistory(null);
-    setCustomHookMode(false);
-    setEngineStatus({ phase: "gpt_generating", gptOutput: null, claudeOutput: null, error: null, progress: 0, progressLabel: "GPT-4o 正在發散 12 個 Hook 概念..." });
-    animateProgress(0, 40, 12000, "GPT-4o 正在發散 12 個 Hook 概念...");
-
+    const label = customHookEngine === "both" ? "Claude + GPT" : customHookEngine === "claude" ? "Claude" : "GPT";
+    setEngineStatus({ ...IDLE_STATUS, phase: "claude_generating", gptOutput: customHooks, progressLabel: `${label} 正在整合你的自訂 Hook...` });
+    animateProgress(0, 92, customHookEngine === "both" ? 35000 : 22000, `${label} 正在整合你的自訂 Hook...`);
     try {
-      // ===== STEP 1: GPT 發散引擎 =====
-      const gptPrompt = buildGptPrompt(toPromptInput());
-      const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          max_tokens: 4000,
-          temperature: 1.2,
-          messages: [
-            { role: "system", content: GPT_SYSTEM_PROMPT },
-            { role: "user", content: gptPrompt },
-          ],
-        }),
+      const res = await integrateMutation.mutateAsync({
+        input: toPromptInput(),
+        hooks: customHooks,
+        engine: customHookEngine,
+        meta: buildMeta(),
       });
-
-      if (!gptResponse.ok) {
-        const err = await gptResponse.text();
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 引擎錯誤 (${gptResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-
-      const gptData = await gptResponse.json();
-      const gptText = gptData.choices?.[0]?.message?.content || "";
-      setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: gptText, progress: 45, progressLabel: "GPT 發散完成 ✓ 正在啟動 Claude 整合..." }));
-
-      await new Promise(r => setTimeout(r, 800));
-
-      // ===== STEP 2: Claude 整合引擎 =====
-      setEngineStatus(prev => ({ ...prev, phase: "claude_generating", progress: 50, progressLabel: "Claude 正在篩選最強 Hook + 撰寫完整腳本..." }));
-      animateProgress(50, 95, 25000, "Claude 正在篩選最強 Hook + 撰寫完整腳本...");
-
-      const claudePrompt = buildClaudePrompt(toPromptInput(), gptText);
-      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": claudeKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
+      stopProgress();
+      setEngineStatus({
+        phase: "claude_done",
+        gptOutput: customHooks,
+        claudeOutput: res.finalOutput,
+        error: null,
+        progress: 100,
+        progressLabel: "整合完成 ✓",
       });
-
-      if (!claudeResponse.ok) {
-        const err = await claudeResponse.text();
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 引擎錯誤 (${claudeResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-
-      const claudeData = await claudeResponse.json();
-      const claudeText = claudeData.content?.[0]?.text || "";
-      setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: claudeText, progress: 100, progressLabel: "雙引擎生成完成 ✓" }));
-      saveToHistory(gptText, claudeText, "dual");
-
-    } catch (error: any) {
-      setEngineStatus(prev => ({ ...prev, phase: "error", error: `請求失敗：${error.message}`, progress: 0, progressLabel: "" }));
+      refreshHistory();
+    } catch (e) {
+      handleError(e, "自訂 Hook 整合失敗");
     }
   };
 
-  // ========== 用現有 GPT Hook 重新整合（Claude only） ==========
-  const handleReintegrateWithClaude = async () => {
-    if (!claudeKey || !engineStatus.gptOutput) return;
+  // ========== 未登入提示 ==========
+  if (!authLoading && !isAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md text-center space-y-6">
+          <div className="w-16 h-16 rounded-2xl bg-primary/10 flex items-center justify-center mx-auto text-primary">
+            <Zap className="w-8 h-8" />
+          </div>
+          <div>
+            <h1 className="font-[family-name:var(--font-display)] text-2xl font-bold glow-text">META 腳本生成器</h1>
+            <p className="text-sm text-muted-foreground mt-2">好創整合行銷 | 雙引擎 AI v3.0</p>
+          </div>
+          <p className="text-sm text-muted-foreground">
+            登入後即可使用雙引擎生成（GPT 發散 → Claude 整合），無需自備任何 API Key，所有運算與知識底層皆在後端完成。
+          </p>
+          <Button size="lg" onClick={() => { window.location.href = getLoginUrl(); }} className="glow-border">
+            <LogIn className="w-4 h-4 mr-2" /> 登入開始使用
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
-    setEngineStatus(prev => ({ ...prev, phase: "claude_generating", claudeOutput: null, error: null, progress: 0, progressLabel: "Claude 正在用新 Hook 重新整合腳本..." }));
-    animateProgress(0, 90, 20000, "Claude 正在用新 Hook 重新整合腳本...");
-
-    try {
-      const claudePrompt = buildClaudePrompt(toPromptInput(), engineStatus.gptOutput);
-      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-api-key": claudeKey,
-          "anthropic-version": "2023-06-01",
-          "anthropic-dangerous-direct-browser-access": "true",
-        },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
-      });
-
-      if (!claudeResponse.ok) {
-        const err = await claudeResponse.text();
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 引擎錯誤 (${claudeResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-
-      const claudeData = await claudeResponse.json();
-      const claudeText = claudeData.content?.[0]?.text || "";
-      setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: claudeText, progress: 100, progressLabel: "整合完成 ✓" }));
-      saveToHistory(engineStatus.gptOutput!, claudeText, "claude_only");
-
-    } catch (error: any) {
-      setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 整合失敗：${error.message}`, progress: 0, progressLabel: "" }));
-    }
-  };
-
-  // ========== 用現有 GPT Hook 重新整合（GPT only） ==========
-  const handleReintegrateWithGpt = async () => {
-    if (!openaiKey || !engineStatus.gptOutput) return;
-
-    setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", claudeOutput: null, error: null, progress: 0, progressLabel: "GPT-4o 正在用新 Hook 重新整合腳本..." }));
-    animateProgress(0, 85, 15000, "GPT-4o 正在用新 Hook 重新整合腳本...");
-
-    try {
-      const gptIntegratePrompt = buildGptIntegratePrompt(toPromptInput(), engineStatus.gptOutput);
-      const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
-        body: JSON.stringify({
-          model: "gpt-4o",
-          max_tokens: 8000,
-          temperature: 0.7,
-          messages: [
-            { role: "system", content: GPT_SYSTEM_PROMPT },
-            { role: "user", content: gptIntegratePrompt },
-          ],
-        }),
-      });
-
-      if (!gptResponse.ok) {
-        const err = await gptResponse.text();
-        setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 整合錯誤 (${gptResponse.status}): ${err}`, progress: 0, progressLabel: "" }));
-        return;
-      }
-
-      const gptData = await gptResponse.json();
-      const gptText = gptData.choices?.[0]?.message?.content || "";
-      setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: gptText, progress: 100, progressLabel: "GPT 整合完成 ✓" }));
-      saveToHistory(engineStatus.gptOutput!, gptText, "gpt_only");
-
-    } catch (error: any) {
-      setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 整合失敗：${error.message}`, progress: 0, progressLabel: "" }));
-    }
-  };
-
-  const isGenerating = engineStatus.phase === "gpt_generating" || engineStatus.phase === "claude_generating";
+  const engineMeta = (engine: string) =>
+    engine === "dual" ? "雙引擎" : engine === "both" ? "雙引擎比較" : engine === "claude_only" ? "Claude" : "GPT";
 
   return (
     <div className="min-h-screen flex">
@@ -497,8 +295,8 @@ export default function Home() {
           <StepItem num={4} label="生成腳本" active={step === 4} done={engineStatus.phase === "claude_done"} onClick={() => setStep(4)} />
         </nav>
 
-        {/* History Button */}
-        <div className="pt-4 border-t border-border mb-3">
+        {/* History */}
+        <div className="pt-4 border-t border-border">
           <Sheet>
             <SheetTrigger asChild>
               <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full px-1 py-1.5">
@@ -514,7 +312,9 @@ export default function Home() {
                 <SheetTitle className="font-[family-name:var(--font-display)]">歷史紀錄</SheetTitle>
               </SheetHeader>
               <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(100vh-120px)]">
-                {history.length === 0 ? (
+                {historyQuery.isLoading ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">載入中...</p>
+                ) : history.length === 0 ? (
                   <p className="text-sm text-muted-foreground text-center py-8">尚無紀錄</p>
                 ) : (
                   history.map((record) => (
@@ -526,7 +326,7 @@ export default function Home() {
                       <div className="flex items-center justify-between mb-1">
                         <span className="text-sm font-medium">{record.productName}</span>
                         <button
-                          onClick={(e) => { e.stopPropagation(); deleteHistoryRecord(record.id); }}
+                          onClick={(e) => { e.stopPropagation(); deleteHistoryMutation.mutate({ id: record.id }); }}
                           className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
                         >
                           <Trash2 className="w-3.5 h-3.5" />
@@ -537,49 +337,20 @@ export default function Home() {
                         <span>•</span>
                         <span>{record.funnel}</span>
                         <span>•</span>
-                        <span>{record.timestamp}</span>
+                        <span>{new Date(record.createdAt).toLocaleString("zh-TW")}</span>
                       </div>
-                      {record.engine && (
-                        <Badge variant="secondary" className="mt-1.5 text-[10px]">
-                          {record.engine === "dual" ? "雙引擎" : record.engine === "both" ? "雙引擎比較" : record.engine === "claude_only" ? "Claude" : "GPT"}
-                        </Badge>
-                      )}
+                      <Badge variant="secondary" className="mt-1.5 text-[10px]">
+                        {engineMeta(record.engine)}
+                      </Badge>
                     </div>
                   ))
                 )}
               </div>
             </SheetContent>
           </Sheet>
-        </div>
-
-        {/* Settings */}
-        <div className="border-t border-border pt-3">
-          <Dialog open={showSettings} onOpenChange={setShowSettings}>
-            <DialogTrigger asChild>
-              <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full px-1 py-1.5">
-                <Settings className="w-3.5 h-3.5" /> API 設定
-              </button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>API 設定</DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground">
-                  Key 僅存在你的瀏覽器 localStorage 中，不會傳到任何伺服器。
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4 mt-4">
-                <div className="space-y-2">
-                  <Label>OpenAI API Key</Label>
-                  <Input type="password" value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} placeholder="sk-..." className="font-mono text-xs" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Anthropic API Key</Label>
-                  <Input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)} placeholder="sk-ant-..." className="font-mono text-xs" />
-                </div>
-
-              </div>
-            </DialogContent>
-          </Dialog>
+          <p className="text-[10px] text-muted-foreground/60 mt-3 px-1 leading-relaxed">
+            內建雙引擎 AI，無需自備 API Key，金鑰與知識底層皆在後端。
+          </p>
         </div>
       </aside>
 
@@ -593,7 +364,7 @@ export default function Home() {
               雙引擎 AI
             </Badge>
             <span className="text-xs text-muted-foreground">
-              GPT-4o → Hook 發散（12個）｜Claude → 篩選整合（3×3×3）
+              GPT → Hook 發散（12個）｜Claude → 篩選整合（3×3×3）
             </span>
           </div>
           <EngineIndicator status={engineStatus} />
@@ -621,7 +392,27 @@ export default function Home() {
                 <Label>核心賣點（1-3 個）*</Label>
                 <Textarea value={formData.sellingPoints} onChange={(e) => updateForm("sellingPoints", e.target.value)} placeholder="例：30 天內產出 27 支變體素材，模組化拍攝一次搞定，專業投手即時優化" className="bg-input min-h-[100px]" />
               </div>
-              <div className="flex justify-end">
+              <div className="flex justify-between">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs text-muted-foreground hover:text-primary"
+                  onClick={() => {
+                    setFormData({
+                      industry: "beauty",
+                      productName: "好創短影音代操方案",
+                      sellingPoints: "30 天內產出 27 支變體素材，模組化拍攝一次搞定，專業投手即時優化",
+                      targetAudience: "25-45 歲中小企業主，有投放經驗但素材產能不足",
+                      funnel: "cold",
+                      duration: "20",
+                      appearance: "person",
+                      tone: "professional",
+                    });
+                    toast.success("已填入測試資料");
+                  }}
+                >
+                  <BookOpen className="w-3.5 h-3.5 mr-1" /> 填入測試資料
+                </Button>
                 <Button onClick={() => setStep(2)} disabled={!isStep1Valid}>下一步 <ChevronRight className="w-4 h-4 ml-1" /></Button>
               </div>
             </StepPanel>
@@ -697,7 +488,7 @@ export default function Home() {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-amber-400">正在查看歷史紀錄</p>
-                      <p className="text-xs text-muted-foreground">{viewingHistory.productName} • {viewingHistory.timestamp}</p>
+                      <p className="text-xs text-muted-foreground">{viewingHistory.productName} • {new Date(viewingHistory.createdAt).toLocaleString("zh-TW")}</p>
                     </div>
                     <Button variant="outline" size="sm" onClick={() => setViewingHistory(null)} className="text-xs">
                       返回當前
@@ -710,12 +501,12 @@ export default function Home() {
               {!viewingHistory && (
                 <>
                   <div className="grid grid-cols-3 gap-4 mb-6">
-                    <SummaryCard label="產業" value={INDUSTRIES.find(i => i.value === formData.industry)?.label || "-"} />
+                    <SummaryCard label="產業" value={toLabel(INDUSTRIES, formData.industry) || "-"} />
                     <SummaryCard label="產品" value={formData.productName || "-"} />
-                    <SummaryCard label="漏斗" value={FUNNELS.find(f => f.value === formData.funnel)?.label?.split("（")[0] || "-"} />
+                    <SummaryCard label="漏斗" value={toLabel(FUNNELS, formData.funnel).split("｜")[0] || "-"} />
                     <SummaryCard label="時長" value={formData.duration ? `${formData.duration} 秒` : "-"} />
-                    <SummaryCard label="出鏡" value={APPEARANCES.find(a => a.value === formData.appearance)?.label || "-"} />
-                    <SummaryCard label="語氣" value={TONES.find(t => t.value === formData.tone)?.label || "-"} />
+                    <SummaryCard label="出鏡" value={toLabel(APPEARANCES, formData.appearance) || "-"} />
+                    <SummaryCard label="語氣" value={toLabel(TONES, formData.tone) || "-"} />
                   </div>
 
                   {/* Custom Hook Mode Toggle */}
@@ -739,37 +530,12 @@ export default function Home() {
                         <div className="space-y-2">
                           <Label className="text-xs text-muted-foreground">選擇整合引擎</Label>
                           <div className="flex gap-3">
-                            <Button
-                              variant={customHookEngine === "claude" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCustomHookEngine("claude")}
-                              className="text-xs"
-                            >
-                              送 Claude 整合
-                            </Button>
-                            <Button
-                              variant={customHookEngine === "gpt" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCustomHookEngine("gpt")}
-                              className="text-xs"
-                            >
-                              送 GPT 整合
-                            </Button>
-                            <Button
-                              variant={customHookEngine === "both" ? "default" : "outline"}
-                              size="sm"
-                              onClick={() => setCustomHookEngine("both")}
-                              className="text-xs"
-                            >
-                              兩個都跑（比較）
-                            </Button>
+                            <Button variant={customHookEngine === "claude" ? "default" : "outline"} size="sm" onClick={() => setCustomHookEngine("claude")} className="text-xs">送 Claude 整合</Button>
+                            <Button variant={customHookEngine === "gpt" ? "default" : "outline"} size="sm" onClick={() => setCustomHookEngine("gpt")} className="text-xs">送 GPT 整合</Button>
+                            <Button variant={customHookEngine === "both" ? "default" : "outline"} size="sm" onClick={() => setCustomHookEngine("both")} className="text-xs">兩個都跑（比較）</Button>
                           </div>
                         </div>
-                        <Button
-                          onClick={handleCustomHookGenerate}
-                          disabled={!customHooks.trim() || isGenerating}
-                          className="w-full"
-                        >
+                        <Button onClick={handleCustomHookGenerate} disabled={!customHooks.trim() || isGenerating} className="w-full">
                           <Send className="w-4 h-4 mr-2" />
                           {isGenerating ? "生成中..." : `用自訂 Hook → ${customHookEngine === "both" ? "Claude + GPT 比較" : customHookEngine === "claude" ? "Claude 整合" : "GPT 整合"}`}
                         </Button>
@@ -780,51 +546,25 @@ export default function Home() {
                   {/* Standard Action Buttons */}
                   {!customHookMode && (
                     <div className="flex items-center gap-3 mb-6 flex-wrap">
-                      <Button
-                        size="lg"
-                        onClick={handleGenerate}
-                        disabled={isGenerating}
-                        className="bg-primary text-primary-foreground hover:bg-primary/90 glow-border"
-                      >
-                        {isGenerating ? (
-                          <><span className="animate-spin mr-2">⚡</span> 生成中...</>
-                        ) : (
-                          <><Zap className="w-4 h-4 mr-2" /> 啟動雙引擎生成</>
-                        )}
+                      <Button size="lg" onClick={handleGenerate} disabled={isGenerating} className="bg-primary text-primary-foreground hover:bg-primary/90 glow-border">
+                        {isGenerating ? (<><span className="animate-spin mr-2">⚡</span> 生成中...</>) : (<><Zap className="w-4 h-4 mr-2" /> 啟動雙引擎生成</>)}
                       </Button>
 
-                      {/* 重新發散 Hook 按鈕 */}
                       {(engineStatus.gptOutput || engineStatus.claudeOutput) && !isGenerating && (
-                        <Button
-                          variant="outline"
-                          onClick={handleRegenerateHooks}
-                          className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                        >
+                        <Button variant="outline" onClick={handleRegenerateHooks} className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
                           <RefreshCw className="w-4 h-4 mr-2" /> 重新發散 Hook
                         </Button>
                       )}
 
-                      {/* 用新 Hook 重新整合 - 選擇引擎 */}
                       {engineStatus.phase === "gpt_done" && engineStatus.gptOutput && !engineStatus.claudeOutput && (
                         <div className="flex gap-2">
-                          <Button
-                            onClick={handleReintegrateWithClaude}
-                            className="bg-blue-600 hover:bg-blue-700 text-white"
-                          >
+                          <Button onClick={() => handleReintegrate("claude")} className="bg-blue-600 hover:bg-blue-700 text-white">
                             <Zap className="w-4 h-4 mr-2" /> 送 Claude 整合
                           </Button>
-                          <Button
-                            onClick={handleReintegrateWithGpt}
-                            variant="outline"
-                            className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
-                          >
+                          <Button onClick={() => handleReintegrate("gpt")} variant="outline" className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10">
                             <Zap className="w-4 h-4 mr-2" /> 送 GPT 整合
                           </Button>
                         </div>
-                      )}
-
-                      {!hasKeys && (
-                        <p className="text-xs text-destructive">⚠️ 請先在左下角「API 設定」填入兩組 Key</p>
                       )}
                     </div>
                   )}
@@ -846,20 +586,14 @@ export default function Home() {
               {!viewingHistory && engineStatus.phase !== "idle" && !customHookMode && (
                 <div className="mb-6 space-y-3">
                   <EngineStep
-                    label="引擎 1：GPT-4o Hook 發散"
+                    label="引擎 1：GPT Hook 發散"
                     description="產出 12 個不同概念的 Hook 草稿"
-                    status={
-                      engineStatus.phase === "gpt_generating" ? "running" :
-                      engineStatus.gptOutput ? "done" : "pending"
-                    }
+                    status={engineStatus.phase === "gpt_generating" ? "running" : engineStatus.gptOutput ? "done" : "pending"}
                   />
                   <EngineStep
                     label="引擎 2：Claude 篩選整合"
                     description="篩選最強 3 個 Hook → 撰寫 Body/CTA → 評分"
-                    status={
-                      engineStatus.phase === "claude_generating" ? "running" :
-                      engineStatus.claudeOutput ? "done" : "pending"
-                    }
+                    status={engineStatus.phase === "claude_generating" ? "running" : engineStatus.claudeOutput ? "done" : "pending"}
                   />
                 </div>
               )}
@@ -868,12 +602,7 @@ export default function Home() {
               {engineStatus.error && !viewingHistory && (
                 <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
                   <p className="text-sm text-destructive font-mono mb-3">{engineStatus.error}</p>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={handleGenerate}
-                    className="border-destructive/30 text-destructive hover:bg-destructive/10"
-                  >
+                  <Button variant="outline" size="sm" onClick={handleGenerate} className="border-destructive/30 text-destructive hover:bg-destructive/10">
                     <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> 重試
                   </Button>
                 </div>
@@ -894,18 +623,26 @@ export default function Home() {
               {/* Final Output - current or history */}
               {viewingHistory ? (
                 <>
-                  <details className="mb-4 border border-border rounded-lg">
-                    <summary className="px-4 py-3 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
-                      📋 查看原始 Hook 草稿
-                    </summary>
-                    <div className="px-4 pb-4 text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-[300px] overflow-y-auto">
-                      {viewingHistory.gptOutput}
-                    </div>
-                  </details>
-                  <ScriptOutput content={viewingHistory.claudeOutput} />
+                  {viewingHistory.gptOutput && (
+                    <details className="mb-4 border border-border rounded-lg">
+                      <summary className="px-4 py-3 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        📋 查看原始 Hook 草稿
+                      </summary>
+                      <div className="px-4 pb-4 text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                        {viewingHistory.gptOutput}
+                      </div>
+                    </details>
+                  )}
+                  <ScriptOutput content={viewingHistory.finalOutput} />
                 </>
               ) : (
-                engineStatus.claudeOutput && <ScriptOutput content={engineStatus.claudeOutput} onRetry={handleReintegrateWithClaude} isRetrying={engineStatus.phase === "claude_generating"} />
+                engineStatus.claudeOutput && (
+                  <ScriptOutput
+                    content={engineStatus.claudeOutput}
+                    onRetry={() => handleReintegrate("claude")}
+                    isRetrying={engineStatus.phase === "claude_generating"}
+                  />
+                )
               )}
             </StepPanel>
           )}
@@ -921,7 +658,7 @@ function EngineIndicator({ status }: { status: EngineStatus }) {
   if (status.phase === "idle") return <Badge variant="secondary">待命</Badge>;
   if (status.phase === "gpt_generating") return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30 animate-pulse">GPT 運算中</Badge>;
   if (status.phase === "gpt_done") return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">GPT ✓ → 可選擇整合引擎</Badge>;
-  if (status.phase === "claude_generating") return <Badge className="bg-primary/20 text-primary border-primary/30 animate-pulse">Claude 運算中</Badge>;
+  if (status.phase === "claude_generating") return <Badge className="bg-primary/20 text-primary border-primary/30 animate-pulse">整合運算中</Badge>;
   if (status.phase === "claude_done") return <Badge className="bg-primary/20 text-primary border-primary/30">✓ 生成完成</Badge>;
   if (status.phase === "error") return <Badge variant="destructive">錯誤</Badge>;
   return null;
@@ -935,9 +672,7 @@ function EngineStep({ label, description, status }: { label: string; description
       "border-border bg-card"
     }`}>
       <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-        status === "running" ? "bg-primary/20" :
-        status === "done" ? "bg-primary/20" :
-        "bg-muted"
+        status === "running" || status === "done" ? "bg-primary/20" : "bg-muted"
       }`}>
         {status === "running" && <span className="animate-spin text-primary">⚡</span>}
         {status === "done" && <CheckCircle2 className="w-4 h-4 text-primary" />}
@@ -996,4 +731,3 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
     </div>
   );
 }
-
