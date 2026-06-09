@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, Settings } from "lucide-react";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, Settings, History, RefreshCw, Trash2 } from "lucide-react";
 import ScriptOutput from "@/components/ScriptOutput";
 
 const INDUSTRIES = [
@@ -66,11 +67,39 @@ interface EngineStatus {
   error: string | null;
 }
 
+interface HistoryRecord {
+  id: string;
+  timestamp: string;
+  productName: string;
+  industry: string;
+  funnel: string;
+  gptOutput: string;
+  claudeOutput: string;
+}
+
+// ========== History Helpers ==========
+const HISTORY_KEY = "meta_script_history";
+
+function loadHistory(): HistoryRecord[] {
+  try {
+    const raw = localStorage.getItem(HISTORY_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function saveHistory(records: HistoryRecord[]) {
+  localStorage.setItem(HISTORY_KEY, JSON.stringify(records.slice(0, 50))); // 最多保留 50 筆
+}
+
 export default function Home() {
   const [step, setStep] = useState(1);
   const [showSettings, setShowSettings] = useState(false);
   const [openaiKey, setOpenaiKey] = useState(() => localStorage.getItem("openai_api_key") || "");
   const [claudeKey, setClaudeKey] = useState(() => localStorage.getItem("claude_api_key") || "");
+  const [history, setHistory] = useState<HistoryRecord[]>(loadHistory);
+  const [viewingHistory, setViewingHistory] = useState<HistoryRecord | null>(null);
   const [engineStatus, setEngineStatus] = useState<EngineStatus>({
     phase: "idle",
     gptOutput: null,
@@ -105,6 +134,73 @@ export default function Home() {
   const isStep3Valid = formData.appearance && formData.tone;
   const hasKeys = openaiKey && claudeKey;
 
+  // ========== Save to history ==========
+  const saveToHistory = (gptOutput: string, claudeOutput: string) => {
+    const record: HistoryRecord = {
+      id: Date.now().toString(36),
+      timestamp: new Date().toLocaleString("zh-TW"),
+      productName: formData.productName,
+      industry: INDUSTRIES.find(i => i.value === formData.industry)?.label || formData.industry,
+      funnel: FUNNELS.find(f => f.value === formData.funnel)?.label?.split("（")[0] || formData.funnel,
+      gptOutput,
+      claudeOutput,
+    };
+    const updated = [record, ...history];
+    setHistory(updated);
+    saveHistory(updated);
+  };
+
+  const deleteHistoryRecord = (id: string) => {
+    const updated = history.filter(h => h.id !== id);
+    setHistory(updated);
+    saveHistory(updated);
+  };
+
+  // ========== GPT Only - 重新發散 Hook ==========
+  const handleRegenerateHooks = async () => {
+    if (!openaiKey) {
+      setShowSettings(true);
+      return;
+    }
+
+    setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", gptOutput: null, error: null }));
+
+    try {
+      const gptPrompt = buildGptPrompt(formData);
+      const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${openaiKey}`,
+        },
+        body: JSON.stringify({
+          model: "gpt-4o",
+          max_tokens: 4000,
+          temperature: 1.2, // 比正常流程更高的溫度，更發散
+          messages: [
+            { role: "system", content: "你是一位台灣頂尖的短影音廣告創意總監，專精 Meta 投放素材的 Hook 設計。你的任務是瘋狂發散，產出大量不同概念的 Hook。用台灣用語、正體中文。這次要比上一次更大膽、更反直覺。" },
+            { role: "user", content: gptPrompt },
+          ],
+        }),
+      });
+
+      if (!gptResponse.ok) {
+        const err = await gptResponse.text();
+        setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 引擎錯誤 (${gptResponse.status}): ${err}` }));
+        return;
+      }
+
+      const gptData = await gptResponse.json();
+      const gptText = gptData.choices?.[0]?.message?.content || "";
+      
+      // 只更新 GPT 輸出，保留之前的 Claude 輸出（如果有的話）
+      setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: gptText }));
+
+    } catch (error: any) {
+      setEngineStatus(prev => ({ ...prev, phase: "error", error: `GPT 重新發散失敗：${error.message}` }));
+    }
+  };
+
   // ========== 雙引擎核心邏輯 ==========
   const handleGenerate = async () => {
     if (!openaiKey || !claudeKey) {
@@ -112,10 +208,11 @@ export default function Home() {
       return;
     }
 
+    setViewingHistory(null);
     setEngineStatus({ phase: "gpt_generating", gptOutput: null, claudeOutput: null, error: null });
 
     try {
-      // ===== STEP 1: GPT 發散引擎 - 產出 12 個 Hook 草稿 =====
+      // ===== STEP 1: GPT 發散引擎 =====
       const gptPrompt = buildGptPrompt(formData);
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
@@ -142,13 +239,11 @@ export default function Home() {
 
       const gptData = await gptResponse.json();
       const gptText = gptData.choices?.[0]?.message?.content || "";
-      
       setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: gptText }));
 
-      // 短暫延遲讓 UI 更新
       await new Promise(r => setTimeout(r, 500));
 
-      // ===== STEP 2: Claude 整合引擎 - 篩選 + 撰寫完整腳本 =====
+      // ===== STEP 2: Claude 整合引擎 =====
       setEngineStatus(prev => ({ ...prev, phase: "claude_generating" }));
 
       const claudePrompt = buildClaudePrompt(formData, gptText);
@@ -163,9 +258,7 @@ export default function Home() {
         body: JSON.stringify({
           model: "claude-sonnet-4-20250514",
           max_tokens: 8000,
-          messages: [
-            { role: "user", content: claudePrompt },
-          ],
+          messages: [{ role: "user", content: claudePrompt }],
         }),
       });
 
@@ -180,8 +273,50 @@ export default function Home() {
 
       setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: claudeText }));
 
+      // 自動存入歷史紀錄
+      saveToHistory(gptText, claudeText);
+
     } catch (error: any) {
       setEngineStatus(prev => ({ ...prev, phase: "error", error: `請求失敗：${error.message}` }));
+    }
+  };
+
+  // ========== 用現有 GPT Hook 重新整合（Claude only） ==========
+  const handleReintegrateWithClaude = async () => {
+    if (!claudeKey || !engineStatus.gptOutput) return;
+
+    setEngineStatus(prev => ({ ...prev, phase: "claude_generating", claudeOutput: null, error: null }));
+
+    try {
+      const claudePrompt = buildClaudePrompt(formData, engineStatus.gptOutput);
+      const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-api-key": claudeKey,
+          "anthropic-version": "2023-06-01",
+          "anthropic-dangerous-direct-browser-access": "true",
+        },
+        body: JSON.stringify({
+          model: "claude-sonnet-4-20250514",
+          max_tokens: 8000,
+          messages: [{ role: "user", content: claudePrompt }],
+        }),
+      });
+
+      if (!claudeResponse.ok) {
+        const err = await claudeResponse.text();
+        setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 引擎錯誤 (${claudeResponse.status}): ${err}` }));
+        return;
+      }
+
+      const claudeData = await claudeResponse.json();
+      const claudeText = claudeData.content?.[0]?.text || "";
+      setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: claudeText }));
+      saveToHistory(engineStatus.gptOutput!, claudeText);
+
+    } catch (error: any) {
+      setEngineStatus(prev => ({ ...prev, phase: "error", error: `Claude 整合失敗：${error.message}` }));
     }
   };
 
@@ -205,8 +340,58 @@ export default function Home() {
           <StepItem num={4} label="生成腳本" active={step === 4} done={engineStatus.phase === "claude_done"} onClick={() => setStep(4)} />
         </nav>
 
+        {/* History Button */}
+        <div className="pt-4 border-t border-border mb-3">
+          <Sheet>
+            <SheetTrigger asChild>
+              <button className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full px-1 py-1.5">
+                <History className="w-3.5 h-3.5" />
+                歷史紀錄
+                {history.length > 0 && (
+                  <span className="ml-auto text-[10px] bg-primary/20 text-primary px-1.5 py-0.5 rounded-full">{history.length}</span>
+                )}
+              </button>
+            </SheetTrigger>
+            <SheetContent side="right" className="w-[400px] sm:w-[540px]">
+              <SheetHeader>
+                <SheetTitle className="font-[family-name:var(--font-display)]">歷史紀錄</SheetTitle>
+              </SheetHeader>
+              <div className="mt-4 space-y-3 overflow-y-auto max-h-[calc(100vh-120px)]">
+                {history.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-8">尚無紀錄</p>
+                ) : (
+                  history.map((record) => (
+                    <div
+                      key={record.id}
+                      className="border border-border rounded-lg p-3 hover:border-primary/30 transition-colors cursor-pointer group"
+                      onClick={() => { setViewingHistory(record); setStep(4); }}
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="text-sm font-medium">{record.productName}</span>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); deleteHistoryRecord(record.id); }}
+                          className="opacity-0 group-hover:opacity-100 transition-opacity text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <span>{record.industry}</span>
+                        <span>•</span>
+                        <span>{record.funnel}</span>
+                        <span>•</span>
+                        <span>{record.timestamp}</span>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </SheetContent>
+          </Sheet>
+        </div>
+
         {/* API Keys */}
-        <div className="mt-auto pt-6 border-t border-border space-y-3">
+        <div className="pt-3 border-t border-border space-y-3">
           <button
             onClick={() => setShowSettings(!showSettings)}
             className="flex items-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors w-full"
@@ -220,23 +405,11 @@ export default function Home() {
             <div className="space-y-3 animate-in fade-in slide-in-from-top-2 duration-200">
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">OpenAI API Key (GPT)</Label>
-                <Input
-                  type="password"
-                  placeholder="sk-..."
-                  value={openaiKey}
-                  onChange={(e) => setOpenaiKey(e.target.value)}
-                  className="text-xs bg-input h-8"
-                />
+                <Input type="password" placeholder="sk-..." value={openaiKey} onChange={(e) => setOpenaiKey(e.target.value)} className="text-xs bg-input h-8" />
               </div>
               <div>
                 <Label className="text-xs text-muted-foreground mb-1 block">Anthropic API Key (Claude)</Label>
-                <Input
-                  type="password"
-                  placeholder="sk-ant-..."
-                  value={claudeKey}
-                  onChange={(e) => setClaudeKey(e.target.value)}
-                  className="text-xs bg-input h-8"
-                />
+                <Input type="password" placeholder="sk-ant-..." value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)} className="text-xs bg-input h-8" />
               </div>
             </div>
           )}
@@ -352,38 +525,78 @@ export default function Home() {
 
           {step === 4 && (
             <StepPanel title="Step 4：雙引擎生成" subtitle="GPT 發散 → Claude 整合" icon={<Zap className="w-5 h-5" />}>
-              {/* Summary */}
-              <div className="grid grid-cols-3 gap-4 mb-6">
-                <SummaryCard label="產業" value={INDUSTRIES.find(i => i.value === formData.industry)?.label || "-"} />
-                <SummaryCard label="產品" value={formData.productName || "-"} />
-                <SummaryCard label="漏斗" value={FUNNELS.find(f => f.value === formData.funnel)?.label?.split("（")[0] || "-"} />
-                <SummaryCard label="時長" value={formData.duration ? `${formData.duration} 秒` : "-"} />
-                <SummaryCard label="出鏡" value={APPEARANCES.find(a => a.value === formData.appearance)?.label || "-"} />
-                <SummaryCard label="語氣" value={TONES.find(t => t.value === formData.tone)?.label || "-"} />
-              </div>
+              {/* Viewing History Mode */}
+              {viewingHistory && (
+                <div className="mb-6 p-4 border border-amber-500/30 bg-amber-500/5 rounded-lg">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-amber-400">正在查看歷史紀錄</p>
+                      <p className="text-xs text-muted-foreground">{viewingHistory.productName} • {viewingHistory.timestamp}</p>
+                    </div>
+                    <Button variant="outline" size="sm" onClick={() => setViewingHistory(null)} className="text-xs">
+                      返回當前
+                    </Button>
+                  </div>
+                </div>
+              )}
 
-              {/* Generate Button */}
-              <div className="flex items-center gap-4 mb-6">
-                <Button
-                  size="lg"
-                  onClick={handleGenerate}
-                  disabled={isGenerating}
-                  className="bg-primary text-primary-foreground hover:bg-primary/90 glow-border"
-                >
-                  {isGenerating ? (
-                    <><span className="animate-spin mr-2">⚡</span> {engineStatus.phase === "gpt_generating" ? "GPT 發散中..." : "Claude 整合中..."}</>
-                  ) : (
-                    <><Zap className="w-4 h-4 mr-2" /> 啟動雙引擎生成</>
-                  )}
-                </Button>
+              {/* Summary (only show when not viewing history) */}
+              {!viewingHistory && (
+                <>
+                  <div className="grid grid-cols-3 gap-4 mb-6">
+                    <SummaryCard label="產業" value={INDUSTRIES.find(i => i.value === formData.industry)?.label || "-"} />
+                    <SummaryCard label="產品" value={formData.productName || "-"} />
+                    <SummaryCard label="漏斗" value={FUNNELS.find(f => f.value === formData.funnel)?.label?.split("（")[0] || "-"} />
+                    <SummaryCard label="時長" value={formData.duration ? `${formData.duration} 秒` : "-"} />
+                    <SummaryCard label="出鏡" value={APPEARANCES.find(a => a.value === formData.appearance)?.label || "-"} />
+                    <SummaryCard label="語氣" value={TONES.find(t => t.value === formData.tone)?.label || "-"} />
+                  </div>
 
-                {!hasKeys && (
-                  <p className="text-xs text-destructive">⚠️ 請先在左下角「API 設定」填入兩組 Key</p>
-                )}
-              </div>
+                  {/* Action Buttons */}
+                  <div className="flex items-center gap-3 mb-6 flex-wrap">
+                    <Button
+                      size="lg"
+                      onClick={handleGenerate}
+                      disabled={isGenerating}
+                      className="bg-primary text-primary-foreground hover:bg-primary/90 glow-border"
+                    >
+                      {isGenerating ? (
+                        <><span className="animate-spin mr-2">⚡</span> {engineStatus.phase === "gpt_generating" ? "GPT 發散中..." : "Claude 整合中..."}</>
+                      ) : (
+                        <><Zap className="w-4 h-4 mr-2" /> 啟動雙引擎生成</>
+                      )}
+                    </Button>
+
+                    {/* 重新發散 Hook 按鈕 */}
+                    {(engineStatus.gptOutput || engineStatus.claudeOutput) && !isGenerating && (
+                      <Button
+                        variant="outline"
+                        onClick={handleRegenerateHooks}
+                        className="border-amber-500/30 text-amber-400 hover:bg-amber-500/10"
+                      >
+                        <RefreshCw className="w-4 h-4 mr-2" /> 重新發散 Hook
+                      </Button>
+                    )}
+
+                    {/* 用新 Hook 重新整合 */}
+                    {engineStatus.phase === "gpt_done" && engineStatus.gptOutput && !engineStatus.claudeOutput && (
+                      <Button
+                        onClick={handleReintegrateWithClaude}
+                        className="bg-blue-600 hover:bg-blue-700 text-white"
+                      >
+                        <Zap className="w-4 h-4 mr-2" /> 用新 Hook 整合腳本
+                      </Button>
+                    )}
+
+                    {!hasKeys && (
+                      <p className="text-xs text-destructive">⚠️ 請先在左下角「API 設定」填入兩組 Key</p>
+                    )}
+                  </div>
+                </>
+              )}
 
               {/* Engine Progress */}
-              {engineStatus.phase !== "idle" && (
+              {!viewingHistory && engineStatus.phase !== "idle" && (
                 <div className="mb-6 space-y-3">
                   <EngineStep
                     label="引擎 1：GPT-4o Hook 發散"
@@ -405,14 +618,14 @@ export default function Home() {
               )}
 
               {/* Error */}
-              {engineStatus.error && (
+              {engineStatus.error && !viewingHistory && (
                 <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
                   <p className="text-sm text-destructive font-mono">{engineStatus.error}</p>
                 </div>
               )}
 
-              {/* GPT Raw Output (collapsible) */}
-              {engineStatus.gptOutput && (
+              {/* GPT Raw Output */}
+              {!viewingHistory && engineStatus.gptOutput && (
                 <details className="mb-4 border border-border rounded-lg">
                   <summary className="px-4 py-3 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
                     📋 查看 GPT 原始 Hook 草稿（12 個）
@@ -423,8 +636,22 @@ export default function Home() {
                 </details>
               )}
 
-              {/* Final Output */}
-              {engineStatus.claudeOutput && <ScriptOutput content={engineStatus.claudeOutput} />}
+              {/* Final Output - current or history */}
+              {viewingHistory ? (
+                <>
+                  <details className="mb-4 border border-border rounded-lg">
+                    <summary className="px-4 py-3 cursor-pointer text-sm text-muted-foreground hover:text-foreground transition-colors">
+                      📋 查看 GPT 原始 Hook 草稿
+                    </summary>
+                    <div className="px-4 pb-4 text-xs font-mono text-muted-foreground whitespace-pre-wrap max-h-[300px] overflow-y-auto">
+                      {viewingHistory.gptOutput}
+                    </div>
+                  </details>
+                  <ScriptOutput content={viewingHistory.claudeOutput} />
+                </>
+              ) : (
+                engineStatus.claudeOutput && <ScriptOutput content={engineStatus.claudeOutput} />
+              )}
             </StepPanel>
           )}
         </div>
@@ -438,7 +665,7 @@ export default function Home() {
 function EngineIndicator({ status }: { status: EngineStatus }) {
   if (status.phase === "idle") return <Badge variant="secondary">待命</Badge>;
   if (status.phase === "gpt_generating") return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">GPT 運算中</Badge>;
-  if (status.phase === "gpt_done") return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">GPT ✓ → Claude 待命</Badge>;
+  if (status.phase === "gpt_done") return <Badge className="bg-amber-500/20 text-amber-400 border-amber-500/30">GPT ✓ → 可整合</Badge>;
   if (status.phase === "claude_generating") return <Badge className="bg-primary/20 text-primary border-primary/30">Claude 運算中</Badge>;
   if (status.phase === "claude_done") return <Badge className="bg-primary/20 text-primary border-primary/30">✓ 雙引擎完成</Badge>;
   if (status.phase === "error") return <Badge variant="destructive">錯誤</Badge>;
@@ -462,9 +689,7 @@ function EngineStep({ label, description, status }: { label: string; description
         {status === "pending" && <span className="w-2 h-2 rounded-full bg-muted-foreground" />}
       </div>
       <div>
-        <p className={`text-sm font-medium ${status === "running" ? "text-primary" : status === "done" ? "text-foreground" : "text-muted-foreground"}`}>
-          {label}
-        </p>
+        <p className={`text-sm font-medium ${status === "running" ? "text-primary" : status === "done" ? "text-foreground" : "text-muted-foreground"}`}>{label}</p>
         <p className="text-xs text-muted-foreground">{description}</p>
       </div>
     </div>

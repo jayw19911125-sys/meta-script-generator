@@ -1,7 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Copy, CheckCircle2 } from "lucide-react";
+import { Copy, CheckCircle2, Download } from "lucide-react";
 import { Streamdown } from "streamdown";
 
 interface ScriptOutputProps {
@@ -17,6 +16,18 @@ export default function ScriptOutput({ content }: ScriptOutputProps) {
     setTimeout(() => setCopied(false), 2000);
   };
 
+  const handleExportTxt = () => {
+    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `meta_script_${new Date().toISOString().slice(0, 10)}_${Date.now().toString(36)}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="border border-border rounded-lg overflow-hidden">
       {/* Header */}
@@ -27,17 +38,18 @@ export default function ScriptOutput({ content }: ScriptOutputProps) {
             模組化矩陣輸出
           </span>
         </div>
-        <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs">
-          {copied ? (
-            <>
-              <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-primary" /> 已複製
-            </>
-          ) : (
-            <>
-              <Copy className="w-3.5 h-3.5 mr-1" /> 複製全部
-            </>
-          )}
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={handleCopy} className="text-xs">
+            {copied ? (
+              <><CheckCircle2 className="w-3.5 h-3.5 mr-1 text-primary" /> 已複製</>
+            ) : (
+              <><Copy className="w-3.5 h-3.5 mr-1" /> 一鍵複製</>
+            )}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={handleExportTxt} className="text-xs">
+            <Download className="w-3.5 h-3.5 mr-1" /> 匯出 TXT
+          </Button>
+        </div>
       </div>
 
       {/* Content */}
