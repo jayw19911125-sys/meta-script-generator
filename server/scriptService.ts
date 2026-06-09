@@ -41,7 +41,9 @@ export async function generateHooks(input: PromptInput): Promise<string> {
       { role: "system", content: GPT_SYSTEM_PROMPT },
       { role: "user", content: buildGptPrompt(input) },
     ],
-    max_tokens: 4000,
+    // gpt-5 為推理型模型，reasoning token 先消耗 max_tokens；
+    // 需給足總額（推理 + 輸出），否則 content 回傳空字串。
+    max_tokens: 16000,
   });
   const text = extractText(result);
   if (!text.trim()) {
@@ -87,7 +89,8 @@ export async function integrateWithGpt(
       { role: "system", content: GPT_SYSTEM_PROMPT },
       { role: "user", content: buildGptIntegratePrompt(input, hooks) },
     ],
-    max_tokens: 8000,
+    // 同上，gpt-5 推理型模型需給足 max_tokens。
+    max_tokens: 16000,
   });
   const text = extractText(result);
   if (!text.trim()) {
