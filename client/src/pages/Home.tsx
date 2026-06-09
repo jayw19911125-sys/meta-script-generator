@@ -6,11 +6,13 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogDescription } from "@/components/ui/dialog";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
-import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, Settings, History, RefreshCw, Trash2, PenLine, Send, BookOpen } from "lucide-react";
+import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, Settings, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, FileDown } from "lucide-react";
+import { toast } from "sonner";
 import ScriptOutput from "@/components/ScriptOutput";
+import { CLAUDE_SYSTEM_PROMPT, GPT_SYSTEM_PROMPT, buildGptPrompt, buildClaudePrompt, buildGptIntegratePrompt, type PromptInput } from "@/lib/prompts";
 
 const INDUSTRIES = [
   { value: "ecommerce", label: "電商（服飾/配件）" },
@@ -184,6 +186,18 @@ export default function Home() {
     tick();
   };
 
+  // ========== Helper: 轉換 FormData 為 PromptInput ==========
+  const toPromptInput = (): PromptInput => ({
+    industry: INDUSTRIES.find(i => i.value === formData.industry)?.label || formData.industry,
+    productName: formData.productName,
+    sellingPoints: formData.sellingPoints,
+    targetAudience: formData.targetAudience,
+    funnel: FUNNELS.find(f => f.value === formData.funnel)?.label || formData.funnel,
+    duration: formData.duration,
+    appearance: APPEARANCES.find(a => a.value === formData.appearance)?.label || formData.appearance,
+    tone: TONES.find(t => t.value === formData.tone)?.label || formData.tone,
+  });
+
   // ========== GPT Only - 重新發散 Hook ==========
   const handleRegenerateHooks = async () => {
     if (!openaiKey) { setShowSettings(true); return; }
@@ -192,7 +206,7 @@ export default function Home() {
     animateProgress(0, 85, 12000, "GPT-4o 正在發散新的 Hook 概念...");
 
     try {
-      const gptPrompt = buildGptPrompt(formData);
+      const gptPrompt = buildGptPrompt(toPromptInput());
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
@@ -201,7 +215,7 @@ export default function Home() {
           max_tokens: 4000,
           temperature: 1.2,
           messages: [
-            { role: "system", content: "你是一位台灣頂尖的短影音廣告創意總監，專精 Meta 投放素材的 Hook 設計。你的任務是瘋狂發散，產出大量不同概念的 Hook。用台灣用語、正體中文。這次要比上一次更大膽、更反直覺。" },
+            { role: "system", content: GPT_SYSTEM_PROMPT },
             { role: "user", content: gptPrompt },
           ],
         }),
@@ -242,7 +256,7 @@ export default function Home() {
       animateProgress(0, 85, 20000, "Claude 正在整合你的自訂 Hook...");
 
       try {
-        const claudePrompt = buildClaudePrompt(formData, customHooks);
+        const claudePrompt = buildClaudePrompt(toPromptInput(), customHooks);
         const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
           method: "POST",
           headers: {
@@ -251,7 +265,7 @@ export default function Home() {
             "anthropic-version": "2023-06-01",
             "anthropic-dangerous-direct-browser-access": "true",
           },
-          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, messages: [{ role: "user", content: claudePrompt }] }),
+          body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
         });
 
         if (!claudeResponse.ok) {
@@ -275,7 +289,7 @@ export default function Home() {
       animateProgress(needClaude ? 50 : 0, needClaude ? 95 : 85, 15000, "GPT-4o 正在整合你的自訂 Hook...");
 
       try {
-        const gptIntegratePrompt = buildGptIntegratePrompt(formData, customHooks);
+        const gptIntegratePrompt = buildGptIntegratePrompt(toPromptInput(), customHooks);
         const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
           method: "POST",
           headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
@@ -284,7 +298,7 @@ export default function Home() {
             max_tokens: 8000,
             temperature: 0.7,
             messages: [
-              { role: "system", content: "你是一位台灣頂尖的短影音廣告腳本整合專家。你的任務是將用戶提供的 Hook 整合成完整的模組化腳本矩陣。用台灣用語、正體中文。" },
+              { role: "system", content: GPT_SYSTEM_PROMPT },
               { role: "user", content: gptIntegratePrompt },
             ],
           }),
@@ -329,16 +343,16 @@ export default function Home() {
 
     try {
       // ===== STEP 1: GPT 發散引擎 =====
-      const gptPrompt = buildGptPrompt(formData);
+      const gptPrompt = buildGptPrompt(toPromptInput());
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
         body: JSON.stringify({
           model: "gpt-4o",
           max_tokens: 4000,
-          temperature: 1.1,
+          temperature: 1.2,
           messages: [
-            { role: "system", content: "你是一位台灣頂尖的短影音廣告創意總監，專精 Meta 投放素材的 Hook 設計。你的任務是瘋狂發散，產出大量不同概念的 Hook。用台灣用語、正體中文。" },
+            { role: "system", content: GPT_SYSTEM_PROMPT },
             { role: "user", content: gptPrompt },
           ],
         }),
@@ -360,7 +374,7 @@ export default function Home() {
       setEngineStatus(prev => ({ ...prev, phase: "claude_generating", progress: 50, progressLabel: "Claude 正在篩選最強 Hook + 撰寫完整腳本..." }));
       animateProgress(50, 95, 25000, "Claude 正在篩選最強 Hook + 撰寫完整腳本...");
 
-      const claudePrompt = buildClaudePrompt(formData, gptText);
+      const claudePrompt = buildClaudePrompt(toPromptInput(), gptText);
       const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -369,7 +383,7 @@ export default function Home() {
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, messages: [{ role: "user", content: claudePrompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
       });
 
       if (!claudeResponse.ok) {
@@ -396,7 +410,7 @@ export default function Home() {
     animateProgress(0, 90, 20000, "Claude 正在用新 Hook 重新整合腳本...");
 
     try {
-      const claudePrompt = buildClaudePrompt(formData, engineStatus.gptOutput);
+      const claudePrompt = buildClaudePrompt(toPromptInput(), engineStatus.gptOutput);
       const claudeResponse = await fetch("https://api.anthropic.com/v1/messages", {
         method: "POST",
         headers: {
@@ -405,7 +419,7 @@ export default function Home() {
           "anthropic-version": "2023-06-01",
           "anthropic-dangerous-direct-browser-access": "true",
         },
-        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, messages: [{ role: "user", content: claudePrompt }] }),
+        body: JSON.stringify({ model: "claude-sonnet-4-20250514", max_tokens: 8000, system: CLAUDE_SYSTEM_PROMPT, messages: [{ role: "user", content: claudePrompt }] }),
       });
 
       if (!claudeResponse.ok) {
@@ -432,7 +446,7 @@ export default function Home() {
     animateProgress(0, 85, 15000, "GPT-4o 正在用新 Hook 重新整合腳本...");
 
     try {
-      const gptIntegratePrompt = buildGptIntegratePrompt(formData, engineStatus.gptOutput);
+      const gptIntegratePrompt = buildGptIntegratePrompt(toPromptInput(), engineStatus.gptOutput);
       const gptResponse = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: { "Content-Type": "application/json", "Authorization": `Bearer ${openaiKey}` },
@@ -441,7 +455,7 @@ export default function Home() {
           max_tokens: 8000,
           temperature: 0.7,
           messages: [
-            { role: "system", content: "你是一位台灣頂尖的短影音廣告腳本整合專家。你的任務是將 Hook 整合成完整的模組化腳本矩陣。用台灣用語、正體中文。" },
+            { role: "system", content: GPT_SYSTEM_PROMPT },
             { role: "user", content: gptIntegratePrompt },
           ],
         }),
@@ -547,7 +561,12 @@ export default function Home() {
               </button>
             </DialogTrigger>
             <DialogContent>
-              <DialogHeader><DialogTitle>API 設定</DialogTitle></DialogHeader>
+              <DialogHeader>
+                <DialogTitle>API 設定</DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Key 僅存在你的瀏覽器 localStorage 中，不會傳到任何伺服器。
+                </DialogDescription>
+              </DialogHeader>
               <div className="space-y-4 mt-4">
                 <div className="space-y-2">
                   <Label>OpenAI API Key</Label>
@@ -557,7 +576,7 @@ export default function Home() {
                   <Label>Anthropic API Key</Label>
                   <Input type="password" value={claudeKey} onChange={(e) => setClaudeKey(e.target.value)} placeholder="sk-ant-..." className="font-mono text-xs" />
                 </div>
-                <p className="text-xs text-muted-foreground">Key 僅存在你的瀏覽器 localStorage 中，不會傳到任何伺服器。</p>
+
               </div>
             </DialogContent>
           </Dialog>
@@ -848,7 +867,15 @@ export default function Home() {
               {/* Error */}
               {engineStatus.error && !viewingHistory && (
                 <div className="mb-6 p-4 bg-destructive/10 border border-destructive/30 rounded-lg">
-                  <p className="text-sm text-destructive font-mono">{engineStatus.error}</p>
+                  <p className="text-sm text-destructive font-mono mb-3">{engineStatus.error}</p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleGenerate}
+                    className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                  >
+                    <RotateCcw className="w-3.5 h-3.5 mr-1.5" /> 重試
+                  </Button>
                 </div>
               )}
 
@@ -878,7 +905,7 @@ export default function Home() {
                   <ScriptOutput content={viewingHistory.claudeOutput} />
                 </>
               ) : (
-                engineStatus.claudeOutput && <ScriptOutput content={engineStatus.claudeOutput} />
+                engineStatus.claudeOutput && <ScriptOutput content={engineStatus.claudeOutput} onRetry={handleReintegrateWithClaude} isRetrying={engineStatus.phase === "claude_generating"} />
               )}
             </StepPanel>
           )}
@@ -970,221 +997,3 @@ function SummaryCard({ label, value }: { label: string; value: string }) {
   );
 }
 
-// ========== Prompt Builders ==========
-
-function buildGptPrompt(data: FormData): string {
-  const industryLabel = INDUSTRIES.find(i => i.value === data.industry)?.label || data.industry;
-  const funnelLabel = FUNNELS.find(f => f.value === data.funnel)?.label || data.funnel;
-  const appearanceLabel = APPEARANCES.find(a => a.value === data.appearance)?.label || data.appearance;
-  const toneLabel = TONES.find(t => t.value === data.tone)?.label || data.tone;
-
-  return `## 任務：為以下產品發散產出 12 個完全不同概念的 Hook
-
-### 產品資訊
-- 產業：${industryLabel}
-- 產品：${data.productName}
-- 賣點：${data.sellingPoints}
-- 受眾：${data.targetAudience}
-- 漏斗：${funnelLabel}
-- 時長：${data.duration} 秒
-- 出鏡：${appearanceLabel}
-- 語氣：${toneLabel}
-
-### 規則
-1. 產出 12 個 Hook，每個必須是完全不同的「概念」（不是改措辭）
-2. 每個 Hook 的口白不超過 15 字（3 秒內講完）
-3. 必須涵蓋以下 6 種公式，每種至少 2 個：
-   - 痛點直擊型
-   - 結果先行型
-   - 反常識型
-   - 提問型
-   - 視覺衝擊型
-   - 故事開場型
-4. 台灣用語、正體中文、口語化
-5. 禁止：品牌名開場、「嗨大家好」、泛泛讚美、慢熱鋪陳
-
-### 輸出格式（每個 Hook）
-\`\`\`
-Hook #N【公式類型】
-口白：（≤15字）
-文字疊層：（螢幕上顯示的文字）
-視覺動作：（畫面描述）
-情緒張力：（1-10 分）
-\`\`\`
-
-請直接輸出 12 個 Hook，不要前言後語。`;
-}
-
-function buildGptIntegratePrompt(data: FormData, hooks: string): string {
-  const industryLabel = INDUSTRIES.find(i => i.value === data.industry)?.label || data.industry;
-  const funnelLabel = FUNNELS.find(f => f.value === data.funnel)?.label || data.funnel;
-  const appearanceLabel = APPEARANCES.find(a => a.value === data.appearance)?.label || data.appearance;
-  const toneLabel = TONES.find(t => t.value === data.tone)?.label || data.tone;
-
-  return `## 任務：將以下 Hook 整合成完整的模組化腳本矩陣
-
-### 產品資訊
-- 產業：${industryLabel}
-- 產品：${data.productName}
-- 賣點：${data.sellingPoints}
-- 受眾：${data.targetAudience}
-- 漏斗：${funnelLabel}
-- 時長：${data.duration} 秒
-- 出鏡：${appearanceLabel}
-- 語氣：${toneLabel}
-
-### 用戶提供的 Hook
-${hooks}
-
----
-
-## 輸出要求
-
-### 第一部分：策略判斷
-- 產業矩陣匹配結果
-- 漏斗層級對應策略
-
-### 第二部分：完整模組化矩陣
-
-#### Hook 模組（從提供的 Hook 中選最強 3 個，補完指令）
-每個 Hook 包含：
-- 被選中原因
-- 口白文字（≤15字）
-- 文字疊層
-- 聲音設計（BGM 風格 + 音效）
-- 人物動向指令（眼神/手勢/身體/表情）
-- 拍攝指令：景別 / 鏡頭運動 / 燈光
-
-#### Body 模組（3 個，角度不同）
-每個 Body 包含：
-- 結構類型
-- 口白文字
-- 文字疊層
-- 聲音設計
-- 人物動向指令
-- 拍攝指令
-- 剪輯節奏
-
-#### CTA 模組（3 個，風格不同）
-每個 CTA 包含：
-- 風格（急迫型 / 利益型 / 社交證明型）
-- 口白文字
-- 文字疊層
-- 人物動向指令
-- 行動理由
-
-### 第三部分：組合建議 Top 5
-用表格呈現：Hook # + Body # + CTA # + 預期效果 + 適用情境
-
-### 第四部分：Checklist 預測評分（100 分制）
-
-### 第五部分：拍攝執行指南
-
-## 品質鐵則
-1. Body 只講好處不講功能規格
-2. CTA 必須有「為什麼現在」的行動理由
-3. 靜音狀態下也要能看懂
-4. 台灣用語、正體中文
-5. 漏斗層級嚴格對應`;
-}
-
-function buildClaudePrompt(data: FormData, gptHooks: string): string {
-  const industryLabel = INDUSTRIES.find(i => i.value === data.industry)?.label || data.industry;
-  const funnelLabel = FUNNELS.find(f => f.value === data.funnel)?.label || data.funnel;
-  const appearanceLabel = APPEARANCES.find(a => a.value === data.appearance)?.label || data.appearance;
-  const toneLabel = TONES.find(t => t.value === data.tone)?.label || data.tone;
-
-  return `你是好創整合行銷的「Meta 導購型短影音廣告腳本整合引擎」。
-
-## 你的任務
-
-GPT 發散引擎已經產出了 Hook 草稿（見下方）。你的工作是：
-1. 從中篩選出最強的 3 個（概念必須不同）
-2. 為每個 Hook 補上完整的人物動向指令和拍攝指令
-3. 撰寫 3 個 Body 模組（角度不同）
-4. 撰寫 3 個 CTA 模組（風格不同）
-5. 給出 Top 5 組合建議
-6. 用 Checklist 評分
-
-## 產品資訊
-
-- 產業：${industryLabel}
-- 產品：${data.productName}
-- 賣點：${data.sellingPoints}
-- 受眾：${data.targetAudience}
-- 漏斗：${funnelLabel}
-- 時長：${data.duration} 秒
-- 出鏡：${appearanceLabel}
-- 語氣：${toneLabel}
-
-## Hook 草稿
-
-${gptHooks}
-
----
-
-## 輸出格式
-
-### 第一部分：策略判斷
-- 產業矩陣匹配結果
-- 漏斗層級對應策略
-- Andromeda 演算法信號優化建議
-
-### 第二部分：篩選結果 + 完整模組化矩陣
-
-#### Hook 模組（從中篩選最強 3 個，補完指令）
-每個 Hook 包含：
-- 原始編號 + 被選中原因
-- 公式類型
-- 口白文字（≤15字）
-- 文字疊層
-- 聲音設計（BGM 風格 + 音效）
-- 人物動向指令：
-  - 眼神（ED-1 直視鏡頭 / ED-2 看產品 / ED-3 看遠方 / ED-4 眼神掃過鏡頭）
-  - 手勢（HG-1 指向鏡頭 / HG-2 展示產品 / HG-3 比數字 / HG-4 攤手）
-  - 身體（BM-1 前傾 / BM-2 轉身 / BM-3 走入畫面 / BM-4 坐定）
-  - 表情（FE-1 驚訝 / FE-2 微笑 / FE-3 皺眉 / FE-4 得意）
-- 拍攝指令：景別 / 鏡頭運動 / 燈光
-
-#### Body 模組（3 個，角度不同）
-每個 Body 包含：
-- 結構類型（問題→方案→證據 / 場景→痛點→解法 / 對比→轉折→好處）
-- 口白文字
-- 文字疊層
-- 聲音設計
-- 人物動向指令
-- 拍攝指令
-- 剪輯節奏（CPS 值：每秒切換次數）
-
-#### CTA 模組（3 個，風格不同）
-每個 CTA 包含：
-- 風格（急迫型 / 利益型 / 社交證明型）
-- 口白文字
-- 文字疊層
-- 人物動向指令
-- 行動理由（為什麼現在要行動）
-
-### 第三部分：組合建議 Top 5
-用表格呈現：Hook # + Body # + CTA # + 預期效果 + 適用情境
-
-### 第四部分：Checklist 預測評分（100 分制）
-用表格列出 19 個檢查項：
-| # | 檢查項 | 通過？ | 分數 |
-包含：Hook ≤3秒 / 概念不同 / 靜音可懂 / 有文字疊層 / Body 講好處 / CTA 有理由 / 人物指令完整 / 漏斗對應 / 台灣用語 / 無致命錯誤...等
-
-### 第五部分：拍攝執行指南
-- 設備建議（手機/相機/收音）
-- 場景設定
-- 服裝建議
-- 拍攝順序（先拍什麼後拍什麼）
-- 剪輯注意事項
-
-## 品質鐵則
-1. 每個被選中的 Hook 必須概念完全不同
-2. Body 只講好處不講功能規格
-3. CTA 必須有「為什麼現在」的行動理由
-4. 靜音狀態下也要能看懂（文字疊層必須獨立傳達資訊）
-5. 台灣用語、正體中文
-6. 漏斗層級嚴格對應（TOFU 不能有價格/BOFU 必須有臨門一腳）
-7. 禁止致命錯誤：品牌名開場 / 嗨大家好 / 泛泛讚美 / 慢熱鋪陳 / 模糊CTA`;
-}
