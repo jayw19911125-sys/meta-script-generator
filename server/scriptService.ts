@@ -66,7 +66,8 @@ export async function integrateWithClaude(
       { role: "system", content: CLAUDE_SYSTEM_PROMPT },
       { role: "user", content: buildClaudePrompt(input, hooks) },
     ],
-    max_tokens: 8000,
+    // gpt-5 同理，claude-opus-4-7 整合時亦需給足 max_tokens 避免截斷。
+    max_tokens: 16000,
   });
   const text = extractText(result);
   if (!text.trim()) {
