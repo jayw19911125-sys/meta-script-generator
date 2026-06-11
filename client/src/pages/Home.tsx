@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, LogIn } from "lucide-react";
 import { toast } from "sonner";
 import ScriptOutput from "@/components/ScriptOutput";
@@ -16,7 +17,8 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
 import {
   INDUSTRIES, FUNNELS, DURATIONS, APPEARANCES, TONES, toLabel,
-  type PromptInput, type IntegrateEngine,
+  GPT_MODELS, CLAUDE_MODELS, ENGINE_PRESETS, DEFAULT_ENGINE_CONFIG,
+  type PromptInput, type IntegrateEngine, type EngineConfig, type PresetKey,
 } from "@shared/scriptTypes";
 import type { ScriptHistory } from "@shared/types";
 
@@ -60,6 +62,19 @@ export default function Home() {
   const [customHookMode, setCustomHookMode] = useState(false);
   const [customHooks, setCustomHooks] = useState("");
   const [customHookEngine, setCustomHookEngine] = useState<IntegrateEngine>("claude");
+
+  // ========== 引擎配置 ==========
+  const [engineConfig, setEngineConfig] = useState<EngineConfig>(DEFAULT_ENGINE_CONFIG);
+  const [showAdvancedEngine, setShowAdvancedEngine] = useState(false);
+
+  const selectPreset = (key: PresetKey) => {
+    setEngineConfig(ENGINE_PRESETS[key].config);
+    setShowAdvancedEngine(false);
+  };
+
+  const updateEngineConfig = (patch: Partial<EngineConfig>) => {
+    setEngineConfig(prev => ({ ...prev, ...patch, preset: "custom" }));
+  };
 
   const [engineStatus, setEngineStatus] = useState<EngineStatus>(IDLE_STATUS);
   const [formData, setFormData] = useState<FormData>({
@@ -168,11 +183,13 @@ export default function Home() {
   const handleGenerate = async () => {
     setViewingHistory(null);
     setCustomHookMode(false);
-    setEngineStatus({ ...IDLE_STATUS, phase: "gpt_generating", progressLabel: "GPT 正在發散 12 個 Hook 概念..." });
-    animateProgress(0, 95, 30000, "雙引擎運算中：GPT 發散 → Claude 整合...");
+    const scatterLabel = engineConfig.scatterModel;
+    const integrateLabel = engineConfig.integrateModel;
+    setEngineStatus({ ...IDLE_STATUS, phase: "gpt_generating", progressLabel: `${scatterLabel} 正在發散 12 個 Hook 概念...` });
+    animateProgress(0, 95, 30000, `雙引擎運算中：${scatterLabel} 發散 → ${integrateLabel} 整合...`);
 
     try {
-      const res = await dualMutation.mutateAsync({ input: toPromptInput(), meta: buildMeta() });
+      const res = await dualMutation.mutateAsync({ input: toPromptInput(), meta: buildMeta(), engineConfig });
       stopProgress();
       setEngineStatus({
         phase: "claude_done",
@@ -193,7 +210,7 @@ export default function Home() {
     setEngineStatus(prev => ({ ...prev, phase: "gpt_generating", gptOutput: null, claudeOutput: null, error: null, progress: 0, progressLabel: "GPT 正在發散新的 Hook 概念..." }));
     animateProgress(0, 90, 15000, "GPT 正在發散新的 Hook 概念...");
     try {
-      const res = await hooksMutation.mutateAsync({ input: toPromptInput() });
+      const res = await hooksMutation.mutateAsync({ input: toPromptInput(), engineConfig });
       stopProgress();
       setEngineStatus(prev => ({ ...prev, phase: "gpt_done", gptOutput: res.gptOutput, progress: 100, progressLabel: "GPT 發散完成 — 可選擇整合引擎" }));
     } catch (e) {
@@ -213,6 +230,7 @@ export default function Home() {
         hooks: engineStatus.gptOutput,
         engine,
         meta: buildMeta(),
+        engineConfig,
       });
       stopProgress();
       setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: res.finalOutput, progress: 100, progressLabel: `${label} 整合完成 ✓` }));
@@ -235,6 +253,7 @@ export default function Home() {
         hooks: customHooks,
         engine: customHookEngine,
         meta: buildMeta(),
+        engineConfig,
       });
       stopProgress();
       setEngineStatus({
@@ -481,7 +500,7 @@ export default function Home() {
           )}
 
           {step === 4 && (
-            <StepPanel title="Step 4：雙引擎生成" subtitle="GPT 發散 → Claude 整合" icon={<Zap className="w-5 h-5" />}>
+            <StepPanel title="Step 4：引擎配置與生成" subtitle="選擇引擎配置，啟動生成" icon={<Zap className="w-5 h-5" />}>
               {/* Viewing History Mode */}
               {viewingHistory && (
                 <div className="mb-6 p-4 border border-amber-500/30 bg-amber-500/5 rounded-lg">
@@ -498,6 +517,111 @@ export default function Home() {
               )}
 
               {/* Summary + Actions (only show when not viewing history) */}
+              {/* ===== 引擎配置區塊 ===== */}
+              {!viewingHistory && (
+                <div className="mb-6 p-4 border border-border rounded-lg bg-card">
+                  <p className="text-sm font-medium mb-3 flex items-center gap-2">
+                    <Zap className="w-4 h-4 text-primary" /> 引擎配置
+                  </p>
+
+                  {/* 三個預設包 */}
+                  <div className="grid grid-cols-3 gap-3 mb-3">
+                    {(Object.entries(ENGINE_PRESETS) as [PresetKey, typeof ENGINE_PRESETS[PresetKey]][]).map(([key, preset]) => (
+                      <button
+                        key={key}
+                        onClick={() => selectPreset(key)}
+                        className={`p-3 rounded-lg border text-left transition-all ${
+                          engineConfig.preset === key
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border bg-card hover:border-primary/40"
+                        }`}
+                      >
+                        <p className="text-sm font-semibold">{preset.label}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">{preset.desc}</p>
+                        <p className="text-xs font-mono mt-1 text-amber-400">{preset.costHint}</p>
+                      </button>
+                    ))}
+                  </div>
+
+                  {/* 進階自訂 */}
+                  <Collapsible open={showAdvancedEngine} onOpenChange={setShowAdvancedEngine}>
+                    <CollapsibleTrigger asChild>
+                      <button className="flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground transition-colors">
+                        <ChevronRight className={`w-3.5 h-3.5 transition-transform ${showAdvancedEngine ? "rotate-90" : ""}`} />
+                        進階自訂
+                        {engineConfig.preset === "custom" && <Badge variant="secondary" className="text-[10px] ml-1">自訂中</Badge>}
+                      </button>
+                    </CollapsibleTrigger>
+                    <CollapsibleContent className="pt-3 space-y-4">
+                      {/* 發散引擎 */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">發散引擎（Hook 生成）</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select
+                            value={engineConfig.scatterVendor}
+                            onValueChange={(v) => updateEngineConfig({ scatterVendor: v as "gpt" | "claude", scatterModel: v === "gpt" ? GPT_MODELS[0].value : CLAUDE_MODELS[0].value })}
+                          >
+                            <SelectTrigger className="bg-input text-xs h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gpt">GPT 系列</SelectItem>
+                              <SelectItem value="claude">Claude 系列</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={engineConfig.scatterModel}
+                            onValueChange={(v) => updateEngineConfig({ scatterModel: v })}
+                          >
+                            <SelectTrigger className="bg-input text-xs h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {(engineConfig.scatterVendor === "gpt" ? GPT_MODELS : CLAUDE_MODELS).map(m => (
+                                <SelectItem key={m.value} value={m.value}>
+                                  {m.label} <span className="text-muted-foreground">({m.tier})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* 整合引擎 */}
+                      <div className="space-y-2">
+                        <Label className="text-xs text-muted-foreground">整合引擎（Body + CTA + 評分）</Label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Select
+                            value={engineConfig.integrateVendor}
+                            onValueChange={(v) => updateEngineConfig({ integrateVendor: v as "gpt" | "claude", integrateModel: v === "gpt" ? GPT_MODELS[0].value : CLAUDE_MODELS[0].value })}
+                          >
+                            <SelectTrigger className="bg-input text-xs h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="gpt">GPT 系列</SelectItem>
+                              <SelectItem value="claude">Claude 系列</SelectItem>
+                            </SelectContent>
+                          </Select>
+                          <Select
+                            value={engineConfig.integrateModel}
+                            onValueChange={(v) => updateEngineConfig({ integrateModel: v })}
+                          >
+                            <SelectTrigger className="bg-input text-xs h-8"><SelectValue /></SelectTrigger>
+                            <SelectContent>
+                              {(engineConfig.integrateVendor === "gpt" ? GPT_MODELS : CLAUDE_MODELS).map(m => (
+                                <SelectItem key={m.value} value={m.value}>
+                                  {m.label} <span className="text-muted-foreground">({m.tier})</span>
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      {/* 目前配置摘要 */}
+                      <div className="text-xs text-muted-foreground bg-muted/30 rounded p-2 font-mono">
+                        發散：{engineConfig.scatterModel} ｜ 整合：{engineConfig.integrateModel}
+                      </div>
+                    </CollapsibleContent>
+                  </Collapsible>
+                </div>
+              )}
+
               {!viewingHistory && (
                 <>
                   <div className="grid grid-cols-3 gap-4 mb-6">

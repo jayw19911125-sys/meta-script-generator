@@ -18,6 +18,90 @@ export type EngineMode = "dual" | "claude_only" | "gpt_only" | "both";
 /** 整合引擎選擇（自訂 Hook 或重新整合時用） */
 export type IntegrateEngine = "claude" | "gpt" | "both";
 
+// ========== 雙引擎自由切換：模型清單 ==========
+
+/** GPT 系列可選模型 */
+export const GPT_MODELS = [
+  { value: "gpt-5",       label: "GPT-5",       tier: "頂配", costHint: "高" },
+  { value: "gpt-4o",      label: "GPT-4o",      tier: "標準", costHint: "中" },
+  { value: "gpt-4o-mini", label: "GPT-4o Mini", tier: "輕量", costHint: "低" },
+] as const;
+
+/** Claude 系列可選模型 */
+export const CLAUDE_MODELS = [
+  { value: "claude-opus-4-7",   label: "Claude Opus",   tier: "頂配", costHint: "高" },
+  { value: "claude-sonnet-4-5", label: "Claude Sonnet", tier: "標準", costHint: "中" },
+  { value: "claude-haiku-3-5",  label: "Claude Haiku",  tier: "輕量", costHint: "低" },
+] as const;
+
+export type GptModelValue = typeof GPT_MODELS[number]["value"];
+export type ClaudeModelValue = typeof CLAUDE_MODELS[number]["value"];
+
+/** 引擎廠商 */
+export type EngineVendor = "gpt" | "claude";
+
+/**
+ * 引擎配置物件（前後端共用 SSOT）
+ * - scatterVendor / scatterModel：發散引擎（Hook 生成）
+ * - integrateVendor / integrateModel：整合引擎（Body + CTA + 評分）
+ * - preset：使用哪個預設包，custom 代表進階自訂
+ */
+export interface EngineConfig {
+  scatterVendor: EngineVendor;
+  scatterModel: string;
+  integrateVendor: EngineVendor;
+  integrateModel: string;
+  preset: "premium" | "standard" | "lite" | "custom";
+}
+
+/** 三個預設配置包 */
+export const ENGINE_PRESETS = {
+  premium: {
+    label: "頂配",
+    desc: "最強品質，正式廣告素材",
+    costHint: "NT$15～17 / 次",
+    config: {
+      scatterVendor: "gpt" as EngineVendor,
+      scatterModel: "gpt-5",
+      integrateVendor: "claude" as EngineVendor,
+      integrateModel: "claude-opus-4-7",
+      preset: "premium" as const,
+    },
+  },
+  standard: {
+    label: "標準",
+    desc: "品質與速度平衡，日常使用",
+    costHint: "NT$2～3 / 次",
+    config: {
+      scatterVendor: "gpt" as EngineVendor,
+      scatterModel: "gpt-4o",
+      integrateVendor: "claude" as EngineVendor,
+      integrateModel: "claude-sonnet-4-5",
+      preset: "standard" as const,
+    },
+  },
+  lite: {
+    label: "輕量",
+    desc: "快速草稿，大量批次測試",
+    costHint: "NT$0.3～0.5 / 次",
+    config: {
+      scatterVendor: "gpt" as EngineVendor,
+      scatterModel: "gpt-4o-mini",
+      integrateVendor: "claude" as EngineVendor,
+      integrateModel: "claude-haiku-3-5",
+      preset: "lite" as const,
+    },
+  },
+} as const;
+
+/** 預設配置包的 key 型別 */
+export type PresetKey = keyof typeof ENGINE_PRESETS;
+
+/** 預設引擎配置（頂配） */
+export const DEFAULT_ENGINE_CONFIG: EngineConfig = ENGINE_PRESETS.premium.config;
+
+// ========== 產業 / 漏斗 / 時長 / 出鏡 / 語氣 ==========
+
 export const INDUSTRIES = [
   { value: "ecommerce", label: "電商（服飾/配件）" },
   { value: "beauty", label: "美妝保養" },

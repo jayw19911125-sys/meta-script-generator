@@ -11,6 +11,7 @@ import {
   integrateWithGpt,
   runDualEngine,
 } from "../scriptService";
+import type { EngineConfig } from "@shared/scriptTypes";
 
 // ========== 輸入驗證 schema ==========
 const promptInputSchema = z.object({
@@ -23,6 +24,27 @@ const promptInputSchema = z.object({
   appearance: z.string().min(1),
   tone: z.string().min(1),
 });
+
+/**
+ * 引擎配置 schema（前後端共用 EngineConfig 型別的 zod 版本）
+ * 發散引擎與整合引擎各自獨立，可選任意廠商與模型。
+ */
+const engineConfigSchema = z.object({
+  scatterVendor: z.enum(["gpt", "claude"]),
+  scatterModel: z.string().min(1),
+  integrateVendor: z.enum(["gpt", "claude"]),
+  integrateModel: z.string().min(1),
+  preset: z.enum(["premium", "standard", "lite", "custom"]),
+});
+
+/** 預設引擎配置（頂配），供未傳入 config 時使用 */
+const DEFAULT_CONFIG: EngineConfig = {
+  scatterVendor: "gpt",
+  scatterModel: "gpt-5",
+  integrateVendor: "claude",
+  integrateModel: "claude-opus-4-7",
+  preset: "premium",
+};
 
 const engineModeSchema = z.enum(["dual", "claude_only", "gpt_only", "both"]);
 
@@ -55,11 +77,16 @@ async function persist(
 }
 
 export const scriptRouter = router({
-  // ===== 完整雙引擎：GPT 發散 → Claude 整合，並自動存庫 =====
+  // ===== 完整雙引擎：發散引擎 → 整合引擎，並自動存庫 =====
   generateDual: protectedProcedure
-    .input(z.object({ input: promptInputSchema, meta: saveMetaSchema }))
+    .input(z.object({
+      input: promptInputSchema,
+      meta: saveMetaSchema,
+      engineConfig: engineConfigSchema.optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
-      const { gptOutput, finalOutput } = await runDualEngine(input.input);
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      const { gptOutput, finalOutput } = await runDualEngine(input.input, config);
       const historyId = await persist(
         ctx.user.id,
         input.meta,
@@ -71,11 +98,15 @@ export const scriptRouter = router({
       return { gptOutput, finalOutput, historyId };
     }),
 
-  // ===== 只跑 GPT 發散 Hook（重新發散，不存庫） =====
+  // ===== 只跑發散引擎 Hook（重新發散，不存庫） =====
   generateHooks: protectedProcedure
-    .input(z.object({ input: promptInputSchema }))
+    .input(z.object({
+      input: promptInputSchema,
+      engineConfig: engineConfigSchema.optional(),
+    }))
     .mutation(async ({ input }) => {
-      const gptOutput = await generateHooks(input.input);
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      const gptOutput = await generateHooks(input.input, config);
       return { gptOutput };
     }),
 
@@ -87,9 +118,11 @@ export const scriptRouter = router({
         hooks: z.string().min(1),
         engine: z.enum(["claude", "gpt", "both"]),
         meta: saveMetaSchema,
+        engineConfig: engineConfigSchema.optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
       const needClaude = input.engine === "claude" || input.engine === "both";
       const needGpt = input.engine === "gpt" || input.engine === "both";
 
@@ -97,15 +130,15 @@ export const scriptRouter = router({
       let gptResult = "";
 
       if (needClaude) {
-        claudeResult = await integrateWithClaude(input.input, input.hooks);
+        claudeResult = await integrateWithClaude(input.input, input.hooks, config);
       }
       if (needGpt) {
-        gptResult = await integrateWithGpt(input.input, input.hooks);
+        gptResult = await integrateWithGpt(input.input, input.hooks, config);
       }
 
       let finalOutput = "";
       if (needClaude && needGpt) {
-        finalOutput = `# 🟢 Claude 整合版\n\n${claudeResult}\n\n---\n\n# 🟡 GPT 整合版\n\n${gptResult}`;
+        finalOutput = `# 🟢 整合引擎 A（${config.integrateModel}）\n\n${claudeResult}\n\n---\n\n# 🟡 整合引擎 B（${config.integrateModel}）\n\n${gptResult}`;
       } else if (needClaude) {
         finalOutput = claudeResult;
       } else {
