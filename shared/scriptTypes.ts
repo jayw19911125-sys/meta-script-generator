@@ -57,7 +57,7 @@ export interface EngineConfig {
 /** 三個預設配置包 */
 export const ENGINE_PRESETS = {
   premium: {
-    label: "頂配",
+    label: "極耗資源",
     desc: "最強品質，正式廣告素材",
     costHint: "NT$15～17 / 次",
     config: {
@@ -81,7 +81,7 @@ export const ENGINE_PRESETS = {
     },
   },
   lite: {
-    label: "輕量",
+    label: "簡單",
     desc: "快速草稿，大量批次測試",
     costHint: "NT$0.3～0.5 / 次",
     config: {
@@ -97,8 +97,8 @@ export const ENGINE_PRESETS = {
 /** 預設配置包的 key 型別 */
 export type PresetKey = keyof typeof ENGINE_PRESETS;
 
-/** 預設引擎配置（頂配） */
-export const DEFAULT_ENGINE_CONFIG: EngineConfig = ENGINE_PRESETS.premium.config;
+/** 預設引擎配置（標準） */
+export const DEFAULT_ENGINE_CONFIG: EngineConfig = ENGINE_PRESETS.standard.config;
 
 // ========== 產業 / 漏斗 / 時長 / 出鏡 / 語氣 ==========
 
