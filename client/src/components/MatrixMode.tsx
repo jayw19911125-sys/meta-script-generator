@@ -310,7 +310,7 @@ export default function MatrixMode({ input, engineConfig, isFormValid }: MatrixM
   return (
     <div className="space-y-6">
       {/* 頂部操作列 */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center justify-between flex-wrap gap-2">
         <div className="flex items-center gap-2">
           <Layers className="w-5 h-5 text-primary" />
           <span className="font-semibold">3-3-3 矩陣模式</span>
@@ -319,10 +319,10 @@ export default function MatrixMode({ input, engineConfig, isFormValid }: MatrixM
         <div className="flex items-center gap-2">
           {matrix.phase === "complete" && (
             <>
-              <Button variant="outline" size="sm" onClick={exportCsv} className="text-xs gap-1.5">
+              <Button variant="outline" size="sm" onClick={exportCsv} className="text-xs gap-1.5 h-8">
                 <Download className="w-3.5 h-3.5" /> CSV
               </Button>
-              <Button variant="outline" size="sm" onClick={exportMarkdown} className="text-xs gap-1.5">
+              <Button variant="outline" size="sm" onClick={exportMarkdown} className="text-xs gap-1.5 h-8">
                 <FileText className="w-3.5 h-3.5" /> Markdown
               </Button>
             </>
@@ -353,7 +353,7 @@ export default function MatrixMode({ input, engineConfig, isFormValid }: MatrixM
           </div>
           <Progress value={matrix.progress} className="h-2" />
           {/* 步驟指示器 */}
-          <div className="grid grid-cols-4 gap-2 mt-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-3">
             {steps.map((s, i) => (
               <div key={i} className={`flex items-center gap-1.5 p-2 rounded-md border text-xs transition-all ${
                 s.running ? "border-primary/50 bg-primary/5 text-primary" :
@@ -409,7 +409,7 @@ export default function MatrixMode({ input, engineConfig, isFormValid }: MatrixM
                     <Star className="w-4 h-4 text-amber-400" />
                     <span className="text-sm font-semibold text-amber-400">AI 推薦最佳組合</span>
                   </div>
-                  <div className="grid grid-cols-3 gap-3">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
                     {matrix.recommendations.map((rec) => (
                       <div
                         key={rec.rank}
@@ -474,7 +474,7 @@ export default function MatrixMode({ input, engineConfig, isFormValid }: MatrixM
           {/* 快速出稿 Tab */}
           {activeTab === "quick" && quickScript && (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between flex-wrap gap-2">
                 <div className="flex items-center gap-2">
                   <Trophy className="w-4 h-4 text-amber-400" />
                   <span className="text-sm font-semibold">最佳組合腳本</span>
@@ -536,7 +536,7 @@ function ModuleSection({ title, modules, notes, onNoteChange, onRerun, accentCol
   const colors = ACCENT_COLORS[accentColor];
   return (
     <div>
-      <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between flex-wrap gap-2 mb-3">
         <div className="flex items-center gap-2">
           <span className={`text-sm font-semibold ${colors.text}`}>{title}</span>
           <Badge className={`text-[10px] ${colors.badge}`}>{modules.length} 個</Badge>
@@ -545,7 +545,7 @@ function ModuleSection({ title, modules, notes, onNoteChange, onRerun, accentCol
           <RefreshCw className="w-3 h-3" /> 重新生成
         </Button>
       </div>
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {modules.map((mod) => (
           <ModuleCard
             key={mod.id}

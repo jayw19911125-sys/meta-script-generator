@@ -59,6 +59,7 @@ export default function Home() {
   const [generationMode, setGenerationMode] = useState<"dual" | "matrix">("dual");
   const [step, setStep] = useState(1);
   const [viewingHistory, setViewingHistory] = useState<ScriptHistory | null>(null);
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false);
 
   // Custom Hook Mode
   const [customHookMode, setCustomHookMode] = useState(false);
@@ -299,9 +300,54 @@ export default function Home() {
     engine === "dual" ? "雙引擎" : engine === "both" ? "雙引擎比較" : engine === "claude_only" ? "Claude" : "GPT";
 
   return (
-    <div className="min-h-screen flex">
-      {/* Left Sidebar */}
-      <aside className="w-64 border-r border-border bg-sidebar p-6 flex flex-col">
+    <div className="min-h-screen flex flex-col md:flex-row">
+      {/* Mobile Top Navbar */}
+      <header className="md:hidden flex items-center justify-between px-4 h-14 border-b border-border bg-sidebar sticky top-0 z-40">
+        <div className="flex items-center gap-2">
+          <Zap className="w-5 h-5 text-primary" />
+          <span className="font-[family-name:var(--font-display)] text-sm font-bold text-primary">META 腳本生成器</span>
+        </div>
+        <div className="flex items-center gap-2">
+          {/* 步驟快捷 */}
+          <div className="flex gap-1">
+            {[1,2,3,4].map(n => (
+              <button key={n} onClick={() => { setStep(n); setGenerationMode('dual'); }} className={`w-7 h-7 rounded-full text-xs font-bold transition-all ${
+                step === n && generationMode === 'dual' ? 'bg-primary text-primary-foreground' :
+                (n===1&&isStep1Valid)||(n===2&&isStep2Valid)||(n===3&&isStep3Valid)||(n===4&&engineStatus.phase==='claude_done') ? 'bg-primary/20 text-primary' :
+                'bg-muted text-muted-foreground'
+              }`}>{n}</button>
+            ))}
+          </div>
+          <button onClick={() => setMobileSidebarOpen(!mobileSidebarOpen)} className="p-2 rounded-md hover:bg-secondary transition-colors">
+            <History className="w-4 h-4" />
+          </button>
+        </div>
+      </header>
+
+      {/* Mobile Sidebar Drawer */}
+      {mobileSidebarOpen && (
+        <div className="md:hidden fixed inset-0 z-50 flex">
+          <div className="absolute inset-0 bg-black/60" onClick={() => setMobileSidebarOpen(false)} />
+          <aside className="relative w-72 bg-sidebar border-r border-border p-6 flex flex-col h-full overflow-y-auto">
+            <div className="mb-6">
+              <h1 className="font-[family-name:var(--font-display)] text-lg font-bold text-primary glow-text">META 腳本生成器</h1>
+              <p className="text-xs text-muted-foreground mt-1">好創整合行銷 | 雙引擎 v3.0</p>
+            </div>
+            <nav className="flex-1 space-y-2">
+              <StepItem num={1} label="產品資訊" active={step === 1} done={!!isStep1Valid} onClick={() => { setStep(1); setGenerationMode('dual'); setMobileSidebarOpen(false); }} />
+              <StepItem num={2} label="受眾與漏斗" active={step === 2} done={!!isStep2Valid} onClick={() => { setStep(2); setGenerationMode('dual'); setMobileSidebarOpen(false); }} />
+              <StepItem num={3} label="風格設定" active={step === 3} done={!!isStep3Valid} onClick={() => { setStep(3); setGenerationMode('dual'); setMobileSidebarOpen(false); }} />
+              <StepItem num={4} label="生成腳本" active={step === 4} done={engineStatus.phase === 'claude_done'} onClick={() => { setStep(4); setGenerationMode('dual'); setMobileSidebarOpen(false); }} />
+            </nav>
+            <p className="text-[10px] text-muted-foreground/60 mt-4 px-1 leading-relaxed">
+              內建雙引擎 AI，無需自備 API Key，金鑰與知識底層皆在後端。
+            </p>
+          </aside>
+        </div>
+      )}
+
+      {/* Left Sidebar — Desktop Only */}
+      <aside className="hidden md:flex w-64 border-r border-border bg-sidebar p-6 flex-col flex-shrink-0">
         <div className="mb-8">
           <h1 className="font-[family-name:var(--font-display)] text-lg font-bold text-primary glow-text">
             META 腳本生成器
@@ -376,9 +422,9 @@ export default function Home() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 p-8 overflow-y-auto">
+      <main className="flex-1 p-4 md:p-8 overflow-y-auto min-w-0">
               {/* Mode Switcher */}
-          <div className="flex gap-2 mb-6 border-b border-border pb-4">
+          <div className="flex flex-wrap gap-2 mb-6 border-b border-border pb-4">
             <button
               onClick={() => setGenerationMode("dual")}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
@@ -402,7 +448,7 @@ export default function Home() {
           </div>
 
               {/* Top Bar */}
-          <div className="flex items-center justify-between mb-8">
+          <div className="flex flex-wrap items-center justify-between gap-2 mb-6 md:mb-8">
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="border-primary/30 text-primary">
               <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 animate-pulse" />
@@ -446,7 +492,7 @@ export default function Home() {
           <div className="space-y-8">
           {generationMode === "dual" && step === 1 && (
             <StepPanel title="Step 1：產品資訊" subtitle="告訴我你要賣什麼" icon={<Target className="w-5 h-5" />}>
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
                 <div className="space-y-2">
                   <Label>產業類別 *</Label>
                   <Select value={formData.industry} onValueChange={(v) => updateForm("industry", v)}>
@@ -497,7 +543,7 @@ export default function Home() {
                 <Label>目標受眾 *</Label>
                 <Textarea value={formData.targetAudience} onChange={(e) => updateForm("targetAudience", e.target.value)} placeholder="例：25-45 歲中小企業主，有投放經驗但素材產能不足" className="bg-input min-h-[80px]" />
               </div>
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
                 <div className="space-y-2">
                   <Label>漏斗層級 *</Label>
                   <Select value={formData.funnel} onValueChange={(v) => updateForm("funnel", v)}>
@@ -526,7 +572,7 @@ export default function Home() {
 
           {generationMode === "dual" && step === 3 && (
             <StepPanel title="Step 3：風格設定" subtitle="決定影片的調性" icon={<Sparkles className="w-5 h-5" />}>
-              <div className="grid grid-cols-2 gap-6 mb-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6 mb-6">
                 <div className="space-y-2">
                   <Label>出鏡方式 *</Label>
                   <Select value={formData.appearance} onValueChange={(v) => updateForm("appearance", v)}>
@@ -579,7 +625,7 @@ export default function Home() {
                   </p>
 
                   {/* 三個預設包 */}
-                  <div className="grid grid-cols-3 gap-3 mb-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-3">
                     {(Object.entries(ENGINE_PRESETS) as [PresetKey, typeof ENGINE_PRESETS[PresetKey]][]).map(([key, preset]) => (
                       <button
                         key={key}
