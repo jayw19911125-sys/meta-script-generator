@@ -176,3 +176,60 @@ export const scriptRouter = router({
       return { success: true } as const;
     }),
 });
+
+// ========== 3-3-3 矩陣生成系統 API (Phase 5) ==========
+import {
+  generateMatrixHooks,
+  generateMatrixBodies,
+  generateMatrixCtas,
+  generateMatrixRecommendations
+} from "../scriptService";
+
+export const matrixRouter = router({
+  // Step 1: 產出 3 個 Hook
+  generateHooks: protectedProcedure
+    .input(z.object({
+      input: promptInputSchema,
+      engineConfig: engineConfigSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      return await generateMatrixHooks(input.input, config);
+    }),
+
+  // Step 2: 產出 3 個 Body
+  generateBodies: protectedProcedure
+    .input(z.object({
+      input: promptInputSchema,
+      hooksJson: z.string(),
+      engineConfig: engineConfigSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      return await generateMatrixBodies(input.input, input.hooksJson, config);
+    }),
+
+  // Step 3: 產出 3 個 CTA
+  generateCtas: protectedProcedure
+    .input(z.object({
+      input: promptInputSchema,
+      bodiesJson: z.string(),
+      engineConfig: engineConfigSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      return await generateMatrixCtas(input.input, input.bodiesJson, config);
+    }),
+
+  // Step 4: AI 推薦與評分
+  generateRecommendations: protectedProcedure
+    .input(z.object({
+      input: promptInputSchema,
+      matrixJson: z.string(),
+      engineConfig: engineConfigSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      return await generateMatrixRecommendations(input.input, input.matrixJson, config);
+    }),
+});

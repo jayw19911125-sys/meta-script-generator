@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertScriptHistory, InsertUser, scriptHistory, users } from "../drizzle/schema";
+import { InsertScriptHistory, InsertScriptMatrixRow, InsertUser, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -134,4 +134,47 @@ export async function deleteScriptHistory(
   await db
     .delete(scriptHistory)
     .where(and(eq(scriptHistory.id, id), eq(scriptHistory.userId, userId)));
+}
+
+// ========== 矩陣歷史紀錄 CRUD ==========
+
+export async function insertScriptMatrix(
+  record: InsertScriptMatrixRow
+): Promise<number | null> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot insert script matrix: database not available");
+    return null;
+  }
+  const result = await db.insert(scriptMatrix).values(record);
+  const insertId = (result as unknown as Array<{ insertId: number }>)[0]?.insertId;
+  return typeof insertId === "number" ? insertId : null;
+}
+
+export async function listScriptMatrix(userId: number, limit = 50) {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot list script matrix: database not available");
+    return [];
+  }
+  return db
+    .select()
+    .from(scriptMatrix)
+    .where(eq(scriptMatrix.userId, userId))
+    .orderBy(desc(scriptMatrix.createdAt))
+    .limit(limit);
+}
+
+export async function deleteScriptMatrix(
+  userId: number,
+  id: number
+): Promise<void> {
+  const db = await getDb();
+  if (!db) {
+    console.warn("[Database] Cannot delete script matrix: database not available");
+    return;
+  }
+  await db
+    .delete(scriptMatrix)
+    .where(and(eq(scriptMatrix.id, id), eq(scriptMatrix.userId, userId)));
 }

@@ -52,3 +52,27 @@ export const scriptHistory = mysqlTable("script_history", {
 
 export type ScriptHistory = typeof scriptHistory.$inferSelect;
 export type InsertScriptHistory = typeof scriptHistory.$inferInsert;
+
+/**
+ * 3-3-3 矩陣歷史紀錄。
+ * 儲存矩陣生成系統產出的結構化資料。
+ */
+export const scriptMatrix = mysqlTable("script_matrix", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  industry: varchar("industry", { length: 255 }).notNull(),
+  funnel: varchar("funnel", { length: 255 }).notNull(),
+  
+  // 儲存 3-3-3 矩陣的 JSON 字串
+  hooksJson: text("hooksJson").notNull(),
+  bodiesJson: text("bodiesJson").notNull(),
+  ctasJson: text("ctasJson").notNull(),
+  recommendationsJson: text("recommendationsJson").notNull(),
+  
+  inputSnapshot: text("inputSnapshot"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScriptMatrixRow = typeof scriptMatrix.$inferSelect;
+export type InsertScriptMatrixRow = typeof scriptMatrix.$inferInsert;

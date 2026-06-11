@@ -189,3 +189,130 @@ export async function runDualEngine(
 
   return { gptOutput, finalOutput };
 }
+
+// ========== 3-3-3 矩陣分步生成系統 (Phase 4) ==========
+import {
+  buildMatrixHookPrompt,
+  buildMatrixBodyPrompt,
+  buildMatrixCtaPrompt,
+  buildMatrixRecommendationPrompt
+} from "./prompts";
+
+/**
+ * 嘗試將 LLM 輸出的文字解析為 JSON 陣列。
+ * 如果 LLM 包了 Markdown 標記，嘗試移除它。
+ */
+function parseJsonArray<T>(text: string): T[] {
+  try {
+    let cleanText = text.trim();
+    // 移除可能存在的 ```json ... ``` 標記
+    if (cleanText.startsWith("\`\`\`json")) {
+      cleanText = cleanText.replace(/^\`\`\`json\n/, "").replace(/\n\`\`\`$/, "");
+    } else if (cleanText.startsWith("\`\`\`")) {
+      cleanText = cleanText.replace(/^\`\`\`\n/, "").replace(/\n\`\`\`$/, "");
+    }
+    const result = JSON.parse(cleanText);
+    if (!Array.isArray(result)) {
+      throw new Error("Parsed JSON is not an array");
+    }
+    return result;
+  } catch (e) {
+    console.error("[JSON Parse Error] Failed to parse LLM output:", text);
+    throw new Error("LLM 未能輸出有效的 JSON 陣列格式，請重試");
+  }
+}
+
+/**
+ * 矩陣生成 Step 1: 產出 3 個 Hook (發散引擎)
+ */
+export async function generateMatrixHooks(
+  input: PromptInput,
+  config: EngineConfig = DEFAULT_ENGINE_CONFIG
+) {
+  const lFramework = await getLFramework(input.funnel);
+  const { scatterVendor, scatterModel } = config;
+
+  const result = await invokeLLM({
+    model: scatterModel,
+    messages: [
+      { role: "system", content: getSystemPrompt(scatterVendor) },
+      { role: "user", content: buildMatrixHookPrompt(input, lFramework) },
+    ],
+    max_tokens: getMaxTokens(scatterVendor),
+  });
+  
+  const text = extractText(result);
+  return parseJsonArray(text);
+}
+
+/**
+ * 矩陣生成 Step 2: 產出 3 個 Body (整合引擎)
+ */
+export async function generateMatrixBodies(
+  input: PromptInput,
+  hooksJson: string,
+  config: EngineConfig = DEFAULT_ENGINE_CONFIG
+) {
+  const lFramework = await getLFramework(input.funnel);
+  const { integrateVendor, integrateModel } = config;
+
+  const result = await invokeLLM({
+    model: integrateModel,
+    messages: [
+      { role: "system", content: getSystemPrompt(integrateVendor) },
+      { role: "user", content: buildMatrixBodyPrompt(input, hooksJson, lFramework) },
+    ],
+    max_tokens: getMaxTokens(integrateVendor),
+  });
+  
+  const text = extractText(result);
+  return parseJsonArray(text);
+}
+
+/**
+ * 矩陣生成 Step 3: 產出 3 個 CTA (整合引擎)
+ */
+export async function generateMatrixCtas(
+  input: PromptInput,
+  bodiesJson: string,
+  config: EngineConfig = DEFAULT_ENGINE_CONFIG
+) {
+  const lFramework = await getLFramework(input.funnel);
+  const { integrateVendor, integrateModel } = config;
+
+  const result = await invokeLLM({
+    model: integrateModel,
+    messages: [
+      { role: "system", content: getSystemPrompt(integrateVendor) },
+      { role: "user", content: buildMatrixCtaPrompt(input, bodiesJson, lFramework) },
+    ],
+    max_tokens: getMaxTokens(integrateVendor),
+  });
+  
+  const text = extractText(result);
+  return parseJsonArray(text);
+}
+
+/**
+ * 矩陣生成 Step 4: AI 推薦與評分 (整合引擎)
+ */
+export async function generateMatrixRecommendations(
+  input: PromptInput,
+  matrixJson: string,
+  config: EngineConfig = DEFAULT_ENGINE_CONFIG
+) {
+  const lFramework = await getLFramework(input.funnel);
+  const { integrateVendor, integrateModel } = config;
+
+  const result = await invokeLLM({
+    model: integrateModel,
+    messages: [
+      { role: "system", content: getSystemPrompt(integrateVendor) },
+      { role: "user", content: buildMatrixRecommendationPrompt(input, matrixJson, lFramework) },
+    ],
+    max_tokens: getMaxTokens(integrateVendor),
+  });
+  
+  const text = extractText(result);
+  return parseJsonArray(text);
+}

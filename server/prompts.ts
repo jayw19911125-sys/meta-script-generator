@@ -510,3 +510,176 @@ ${hooks}
 5. 漏斗層級嚴格對應
 6. 人物動向指令每段落必填`;
 }
+
+// ========== 3-3-3 分步 Prompt Builder (Phase 3) ==========
+
+/** 
+ * 步驟 1：生成 Hook (發散引擎)
+ * 取代舊的 buildGptPrompt，現在專注於生成 3 個極強的 Hook
+ */
+export function buildMatrixHookPrompt(data: PromptInput, lFramework?: FunnelFramework | null): string {
+  const lInjection = buildLFrameworkInjection(data.funnel, lFramework ?? null);
+  return `## 任務：為以下產品產出 3 個完全不同概念的 Hook 模組
+
+### 產品資訊
+- 產業：${data.industry}
+- 產品：${data.productName}
+- 賣點：${data.sellingPoints}
+- 受眾：${data.targetAudience}
+- 漏斗：${data.funnel}
+- 時長：${data.duration} 秒
+- 出鏡：${data.appearance}
+- 語氣：${data.tone}
+
+${lInjection}
+
+### 輸出格式（必須嚴格輸出為 JSON 陣列）
+請直接輸出一個 JSON 陣列，包含 3 個物件，每個物件對應一個 Hook：
+[
+  {
+    "id": "h1",
+    "type": "hook",
+    "index": 1,
+    "text": "口白（≤15字）",
+    "shotDirection": "畫面建議與文字疊層",
+    "soundEffect": "音效與 BGM",
+    "performanceNote": "人物動向指令 (ED/HG/BM/FE/OC)"
+  },
+  ...
+]
+
+### 額外要求
+- 3 個 Hook 必須來自完全不同的心理切入角度（例如：痛點、結果先行、反常識）
+- 每個口白 ≤ 15 字（3 秒內說完）
+- 台灣用語、正體中文、口語化
+- 絕對不要輸出 Markdown 標記（例如 \`\`\`json），直接輸出純 JSON 陣列！`;
+}
+
+/** 
+ * 步驟 2：生成 Body (整合引擎)
+ */
+export function buildMatrixBodyPrompt(data: PromptInput, hooksJson: string, lFramework?: FunnelFramework | null): string {
+  const lInjection = buildLFrameworkInjection(data.funnel, lFramework ?? null);
+  return `## 任務：根據已生成的 3 個 Hook，產出 3 個完全不同角度的 Body 模組
+
+### 產品資訊
+- 產業：${data.industry}
+- 產品：${data.productName}
+- 賣點：${data.sellingPoints}
+- 受眾：${data.targetAudience}
+- 漏斗：${data.funnel}
+- 時長：${data.duration} 秒
+
+${lInjection}
+
+### 已生成的 Hook (參考用，Body 必須能通用銜接)
+${hooksJson}
+
+### 輸出格式（必須嚴格輸出為 JSON 陣列）
+請直接輸出一個 JSON 陣列，包含 3 個物件，每個物件對應一個 Body：
+[
+  {
+    "id": "b1",
+    "type": "body",
+    "index": 1,
+    "text": "口白文字（標註秒數）",
+    "shotDirection": "畫面建議與文字疊層",
+    "soundEffect": "音效與 BGM 變化",
+    "performanceNote": "人物動向指令 (ED/HG/BM/FE)"
+  },
+  ...
+]
+
+### 額外要求
+- 3 個 Body 必須能通用銜接上述任何一個 Hook
+- 3 個 Body 必須採用不同結構（例如：問題→解決方案、展示/眼見為憑、故事弧線）
+- 只講好處不講功能規格
+- 台灣用語、正體中文
+- 絕對不要輸出 Markdown 標記，直接輸出純 JSON 陣列！`;
+}
+
+/** 
+ * 步驟 3：生成 CTA (整合引擎)
+ */
+export function buildMatrixCtaPrompt(data: PromptInput, bodiesJson: string, lFramework?: FunnelFramework | null): string {
+  const lInjection = buildLFrameworkInjection(data.funnel, lFramework ?? null);
+  return `## 任務：根據已生成的 Body，產出 3 個完全不同風格的 CTA 模組
+
+### 產品資訊
+- 產業：${data.industry}
+- 產品：${data.productName}
+- 賣點：${data.sellingPoints}
+- 漏斗：${data.funnel}
+
+${lInjection}
+
+### 已生成的 Body (參考用)
+${bodiesJson}
+
+### 輸出格式（必須嚴格輸出為 JSON 陣列）
+請直接輸出一個 JSON 陣列，包含 3 個物件，每個物件對應一個 CTA：
+[
+  {
+    "id": "c1",
+    "type": "cta",
+    "index": 1,
+    "text": "口白文字",
+    "shotDirection": "畫面建議與文字疊層",
+    "soundEffect": "音效",
+    "performanceNote": "人物動向指令"
+  },
+  ...
+]
+
+### 額外要求
+- 3 個 CTA 必須採用不同風格（例如：急迫感、專屬優惠、友善連結）
+- 必須有「為什麼現在」的行動理由
+- 漏斗層級嚴格對應（TOFU 軟 CTA，BOFU 硬 CTA）
+- 絕對不要輸出 Markdown 標記，直接輸出純 JSON 陣列！`;
+}
+
+/** 
+ * 步驟 4：AI 推薦與 Checklist 評分 (整合引擎)
+ */
+export function buildMatrixRecommendationPrompt(data: PromptInput, matrixJson: string, lFramework?: FunnelFramework | null): string {
+  const lInjection = buildLFrameworkInjection(data.funnel, lFramework ?? null);
+  return `## 任務：對 3-3-3 矩陣進行評估，推薦 3 組最強的組合並給予 Checklist 評分
+
+### 產品資訊
+- 產業：${data.industry}
+- 漏斗：${data.funnel}
+
+${lInjection}
+
+### 完整的 3-3-3 矩陣
+${matrixJson}
+
+### 評分標準（19 項，100 分制）
+- Hook 強度（30分）
+- Body 連貫性（20分）
+- CTA 明確度（15分）
+- 情緒曲線（15分）
+- 產業適配度（10分）
+- 技術合規（10分）
+
+### 輸出格式（必須嚴格輸出為 JSON 陣列）
+請從 27 種可能組合中，選出最強的 3 組（rank 1 到 3），直接輸出一個 JSON 陣列：
+[
+  {
+    "rank": 1,
+    "hookIndex": 1,
+    "bodyIndex": 2,
+    "ctaIndex": 3,
+    "score": 92,
+    "checklistNotes": "Hook 強度(28/30):... Body連貫性(18/20):... (簡述各項得分與改進建議)",
+    "reason": "為什麼推薦這個組合"
+  },
+  ...
+]
+
+### 額外要求
+- rank 必須是 1, 2, 3
+- index 必須對應矩陣中的 1, 2, 3
+- score 為 0-100 的整數
+- 絕對不要輸出 Markdown 標記，直接輸出純 JSON 陣列！`;
+}

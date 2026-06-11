@@ -9,7 +9,8 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Progress } from "@/components/ui/progress";
 import { Switch } from "@/components/ui/switch";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, LogIn } from "lucide-react";
+import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, LogIn, Layers } from "lucide-react";
+import MatrixMode from "@/components/MatrixMode";
 import { toast } from "sonner";
 import ScriptOutput from "@/components/ScriptOutput";
 import { trpc } from "@/lib/trpc";
@@ -55,6 +56,7 @@ export default function Home() {
   const { isAuthenticated, loading: authLoading } = useAuth();
   const utils = trpc.useUtils();
 
+  const [generationMode, setGenerationMode] = useState<"dual" | "matrix">("dual");
   const [step, setStep] = useState(1);
   const [viewingHistory, setViewingHistory] = useState<ScriptHistory | null>(null);
 
@@ -375,8 +377,32 @@ export default function Home() {
 
       {/* Main Content */}
       <main className="flex-1 p-8 overflow-y-auto">
-        {/* Top Bar */}
-        <div className="flex items-center justify-between mb-8">
+              {/* Mode Switcher */}
+          <div className="flex gap-2 mb-6 border-b border-border pb-4">
+            <button
+              onClick={() => setGenerationMode("dual")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                generationMode === "dual"
+                  ? "bg-primary/10 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              <Zap className="w-4 h-4" /> 雙引擎模式
+            </button>
+            <button
+              onClick={() => setGenerationMode("matrix")}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                generationMode === "matrix"
+                  ? "bg-primary/10 text-primary border border-primary/30"
+                  : "text-muted-foreground hover:text-foreground hover:bg-secondary"
+              }`}
+            >
+              <Layers className="w-4 h-4" /> 3-3-3 矩陣模式
+            </button>
+          </div>
+
+              {/* Top Bar */}
+          <div className="flex items-center justify-between mb-8">
           <div className="flex items-center gap-3">
             <Badge variant="outline" className="border-primary/30 text-primary">
               <span className="w-1.5 h-1.5 rounded-full bg-primary mr-1.5 animate-pulse" />
@@ -389,8 +415,36 @@ export default function Home() {
           <EngineIndicator status={engineStatus} />
         </div>
 
-        <div className="space-y-8">
-          {step === 1 && (
+          {/* 矩陣模式直接顯示 */}
+          {generationMode === "matrix" && (
+            <div className="max-w-5xl">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-10 h-10 rounded-lg bg-primary/10 flex items-center justify-center text-primary">
+                  <Layers className="w-5 h-5" />
+                </div>
+                <div>
+                  <h2 className="font-[family-name:var(--font-display)] text-xl font-bold">3-3-3 矩陣模式</h2>
+                  <p className="text-sm text-muted-foreground">分步生成 3 個 Hook × 3 個 Body × 3 個 CTA，AI 自動評分推薦最佳組合</p>
+                </div>
+              </div>
+              {(!isStep1Valid || !isStep2Valid || !isStep3Valid) && (
+                <div className="mb-4 p-3 border border-amber-500/30 bg-amber-500/5 rounded-lg">
+                  <p className="text-sm text-amber-400">請先完成 Step 1-3 的表單填寫，再啟動矩陣生成</p>
+                  <Button size="sm" variant="outline" className="mt-2 text-xs" onClick={() => setGenerationMode("dual")}>
+                    前往填寫表單
+                  </Button>
+                </div>
+              )}
+              <MatrixMode
+                input={toPromptInput()}
+                engineConfig={engineConfig}
+                isFormValid={!!(isStep1Valid && isStep2Valid && isStep3Valid)}
+              />
+            </div>
+          )}
+
+          <div className="space-y-8">
+          {generationMode === "dual" && step === 1 && (
             <StepPanel title="Step 1：產品資訊" subtitle="告訴我你要賣什麼" icon={<Target className="w-5 h-5" />}>
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
@@ -437,7 +491,7 @@ export default function Home() {
             </StepPanel>
           )}
 
-          {step === 2 && (
+          {generationMode === "dual" && step === 2 && (
             <StepPanel title="Step 2：受眾與漏斗" subtitle="你要對誰說、在哪個階段" icon={<Film className="w-5 h-5" />}>
               <div className="space-y-2 mb-6">
                 <Label>目標受眾 *</Label>
@@ -470,7 +524,7 @@ export default function Home() {
             </StepPanel>
           )}
 
-          {step === 3 && (
+          {generationMode === "dual" && step === 3 && (
             <StepPanel title="Step 3：風格設定" subtitle="決定影片的調性" icon={<Sparkles className="w-5 h-5" />}>
               <div className="grid grid-cols-2 gap-6 mb-6">
                 <div className="space-y-2">
@@ -499,7 +553,7 @@ export default function Home() {
             </StepPanel>
           )}
 
-          {step === 4 && (
+          {generationMode === "dual" && step === 4 && (
             <StepPanel title="Step 4：引擎配置與生成" subtitle="選擇引擎配置，啟動生成" icon={<Zap className="w-5 h-5" />}>
               {/* Viewing History Mode */}
               {viewingHistory && (

@@ -149,3 +149,46 @@ export function toLabel(
 ): string {
   return options.find(o => o.value === value)?.label ?? value;
 }
+
+// ========== 3-3-3 矩陣生成系統型別 ==========
+
+/** 單一腳本模組（Hook / Body / CTA 共用結構） */
+export interface ScriptModule {
+  id: string;           // e.g., "h1", "b2", "c3"
+  type: "hook" | "body" | "cta";
+  index: number;        // 1 | 2 | 3
+  text: string;         // 口播文案
+  shotDirection: string;   // 畫面建議
+  soundEffect: string;     // 音效建議
+  performanceNote: string; // 人物動向指令
+  notes?: string;          // 用戶備註（前端用，非必填）
+}
+
+/** AI 推薦的組合與 Checklist 評分 */
+export interface MatrixRecommendation {
+  rank: number;         // 1 | 2 | 3
+  hookIndex: number;    // 1 | 2 | 3
+  bodyIndex: number;    // 1 | 2 | 3
+  ctaIndex: number;     // 1 | 2 | 3
+  score: number;        // 0-100
+  checklistNotes: string; // 評分原因與改進建議
+  reason: string;       // 為什麼推薦這個組合
+}
+
+/** 3-3-3 矩陣完整結果 */
+export interface ScriptMatrix {
+  hooks: [ScriptModule, ScriptModule, ScriptModule];
+  bodies: [ScriptModule, ScriptModule, ScriptModule];
+  ctas: [ScriptModule, ScriptModule, ScriptModule];
+  recommendations: MatrixRecommendation[]; // AI 推薦的 3 組最強組合
+  generatedAt: string;
+}
+
+/** 快速出稿模式的單支腳本結果 */
+export interface QuickScriptResult {
+  hook: ScriptModule;
+  body: ScriptModule;
+  cta: ScriptModule;
+  score: number;
+  checklistNotes: string;
+}
