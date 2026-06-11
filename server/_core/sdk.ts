@@ -257,23 +257,6 @@ class SDKServer {
   }
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
-    // DEV BYPASS: If running in development without OAuth server, auto-login as mock user
-    if (process.env.NODE_ENV === "development" && !ENV.oAuthServerUrl) {
-      const mockOpenId = "mock-dev-user-id";
-      let user = await db.getUserByOpenId(mockOpenId);
-      if (!user) {
-        await db.upsertUser({
-          openId: mockOpenId,
-          name: "Dev User",
-          email: "dev@localhost",
-          loginMethod: "dev_bypass",
-          lastSignedIn: new Date(),
-        });
-        user = await db.getUserByOpenId(mockOpenId);
-      }
-      return user!;
-    }
-
     // Regular authentication flow
     const cookies = this.parseCookies(req.headers.cookie);
     const sessionCookie = cookies.get(COOKIE_NAME);

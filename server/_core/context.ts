@@ -20,20 +20,7 @@ export async function createContext(
     user = null;
   }
 
-  // DEV BYPASS: Force inject mock user in dev environment without OAuth
-  if (!user && process.env.NODE_ENV === "development") {
-    user = {
-      id: 1,
-      openId: "mock-dev-user-id",
-      name: "Dev User",
-      email: "dev@localhost",
-      loginMethod: "dev_bypass",
-      lastSignedIn: new Date(),
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      role: "admin",
-    } as User;
-  }
+  // Mock user injection removed for production safety
 
   return {
     req: opts.req,

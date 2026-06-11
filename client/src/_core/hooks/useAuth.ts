@@ -42,23 +42,16 @@ export function useAuth(options?: UseAuthOptions) {
   }, [logoutMutation, utils]);
 
   const state = useMemo(() => {
-    // DEV BYPASS: If query fails but we are in dev without OAuth URL, mock the auth state
-    const isDevBypass = import.meta.env.DEV && !import.meta.env.VITE_OAUTH_PORTAL_URL;
-    const mockUser = { id: 1, openId: "mock-dev-user-id", name: "Dev User", email: "dev@localhost" };
-    
-    const user = isDevBypass ? (meQuery.data ?? mockUser) : (meQuery.data ?? null);
-    const isAuthenticated = isDevBypass ? true : Boolean(meQuery.data);
-    
+    const user = meQuery.data ?? null;
     localStorage.setItem(
       "manus-runtime-user-info",
       JSON.stringify(user)
     );
-    
     return {
       user: user as any,
-      loading: isDevBypass ? false : (meQuery.isLoading || logoutMutation.isPending),
-      error: isDevBypass ? null : (meQuery.error ?? logoutMutation.error ?? null),
-      isAuthenticated,
+      loading: meQuery.isLoading || logoutMutation.isPending,
+      error: meQuery.error ?? logoutMutation.error ?? null,
+      isAuthenticated: Boolean(meQuery.data),
     };
   }, [
     meQuery.data,
