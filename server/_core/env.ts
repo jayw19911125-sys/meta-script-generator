@@ -1,3 +1,7 @@
+// Load .env before anything else (handles ESM import hoisting issue)
+import { config as loadDotenv } from "dotenv";
+loadDotenv({ override: true });
+
 export const ENV = {
   appId: process.env.VITE_APP_ID ?? "",
   cookieSecret: process.env.JWT_SECRET ?? "",

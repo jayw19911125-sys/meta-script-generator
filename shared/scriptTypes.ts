@@ -23,15 +23,15 @@ export type IntegrateEngine = "claude" | "gpt" | "both";
 /** GPT 系列可選模型 */
 export const GPT_MODELS = [
   { value: "gpt-5",       label: "GPT-5",       tier: "頂配", costHint: "高" },
-  { value: "gpt-4o",      label: "GPT-4o",      tier: "標準", costHint: "中" },
-  { value: "gpt-4o-mini", label: "GPT-4o Mini", tier: "輕量", costHint: "低" },
+  { value: "gpt-5-mini",  label: "GPT-5 Mini",  tier: "標準", costHint: "中" },
+  { value: "gpt-5-nano",  label: "GPT-5 Nano",  tier: "輕量", costHint: "低" },
 ] as const;
 
 /** Claude 系列可選模型 */
 export const CLAUDE_MODELS = [
-  { value: "claude-opus-4-7",   label: "Claude Opus",   tier: "頂配", costHint: "高" },
-  { value: "claude-sonnet-4-5", label: "Claude Sonnet", tier: "標準", costHint: "中" },
-  { value: "claude-haiku-3-5",  label: "Claude Haiku",  tier: "輕量", costHint: "低" },
+  { value: "claude-opus-4-6",   label: "Claude Opus",   tier: "頂配", costHint: "高" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet", tier: "標準", costHint: "中" },
+  { value: "claude-haiku-4-5",  label: "Claude Haiku",  tier: "輕量", costHint: "低" },
 ] as const;
 
 export type GptModelValue = typeof GPT_MODELS[number]["value"];
@@ -64,7 +64,7 @@ export const ENGINE_PRESETS = {
       scatterVendor: "gpt" as EngineVendor,
       scatterModel: "gpt-5",
       integrateVendor: "claude" as EngineVendor,
-      integrateModel: "claude-opus-4-7",
+      integrateModel: "claude-opus-4-6",
       preset: "premium" as const,
     },
   },
@@ -74,9 +74,9 @@ export const ENGINE_PRESETS = {
     costHint: "NT$2～3 / 次",
     config: {
       scatterVendor: "gpt" as EngineVendor,
-      scatterModel: "gpt-4o",
+      scatterModel: "gpt-5-mini",
       integrateVendor: "claude" as EngineVendor,
-      integrateModel: "claude-sonnet-4-5",
+      integrateModel: "claude-sonnet-4-6",
       preset: "standard" as const,
     },
   },
@@ -86,9 +86,9 @@ export const ENGINE_PRESETS = {
     costHint: "NT$0.3～0.5 / 次",
     config: {
       scatterVendor: "gpt" as EngineVendor,
-      scatterModel: "gpt-4o-mini",
+      scatterModel: "gpt-5-nano",
       integrateVendor: "claude" as EngineVendor,
-      integrateModel: "claude-haiku-3-5",
+      integrateModel: "claude-haiku-4-5",
       preset: "lite" as const,
     },
   },
