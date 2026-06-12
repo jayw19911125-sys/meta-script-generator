@@ -1,4 +1,4 @@
-// ========== Notion 回寫服務 v1.0 ==========
+// ========== Notion 回寫服務 v1.1 ==========
 // 負責將 AI 生成的腳本寫入 Notion B2 客戶腳本庫。
 // 架構：
 //   B2 客戶腳本庫（父頁面）
@@ -11,7 +11,8 @@
 import { execSync } from "child_process";
 
 // ========== 常數 ==========
-const B2_SCRIPT_LIBRARY_PAGE_ID = "37b97a06fae5818c91d1c2bd91baa373";
+// 注意：notion-create-pages 的 parent.page_id 必須使用帶連字號的格式
+const B2_SCRIPT_LIBRARY_PAGE_ID = "37b97a06-fae5-818c-91d1-c2bd91baa373";
 
 // ========== 型別 ==========
 export interface NotionSaveInput {
@@ -40,17 +41,50 @@ export interface NotionSaveResult {
 }
 
 // ========== 工具函數：呼叫 Notion MCP ==========
+// 使用 stdin 傳遞 JSON，避免 shell 引號逸出問題
 function callNotionMcp(tool: string, input: Record<string, unknown>): unknown {
-  const inputJson = JSON.stringify(input).replace(/'/g, "'\\''");
-  const cmd = `manus-mcp-cli tool call ${tool} --server notion --input '${inputJson}'`;
-  const result = execSync(cmd, { encoding: "utf-8", timeout: 60000 });
-  const match = result.match(/Tool execution result:\n([\s\S]+)/);
-  if (!match) throw new Error(`Notion MCP ${tool} 回傳格式異常`);
-  return JSON.parse(match[1].trim());
+  const inputJson = JSON.stringify(input);
+  // 將 JSON 寫入暫存檔，再用 --input-file 讀取，避免 shell 特殊字元問題
+  const tmpFile = `/tmp/notion_mcp_input_${Date.now()}.json`;
+  require("fs").writeFileSync(tmpFile, inputJson, "utf-8");
+  try {
+    const cmd = `manus-mcp-cli tool call ${tool} --server notion --input "$(cat ${tmpFile})"`;
+    const result = execSync(cmd, { encoding: "utf-8", timeout: 60000, shell: "/bin/bash" });
+    const match = result.match(/Tool execution result:\n([\s\S]+)/);
+    if (!match) throw new Error(`Notion MCP ${tool} 回傳格式異常：${result.slice(0, 300)}`);
+    const parsed = JSON.parse(match[1].trim());
+    if (parsed?.error) throw new Error(`Notion MCP ${tool} 回傳錯誤：${JSON.stringify(parsed.error)}`);
+    return parsed;
+  } finally {
+    try { require("fs").unlinkSync(tmpFile); } catch { /* ignore */ }
+  }
+}
+
+// ========== 工具函數：建立單一 Notion 頁面，回傳 {id, url} ==========
+function createNotionPage(
+  parentPageId: string,
+  title: string,
+  content: string,
+  icon: string
+): { id: string; url: string } {
+  const result = callNotionMcp("notion-create-pages", {
+    parent: { page_id: parentPageId },
+    pages: [{
+      properties: { title },
+      content,
+      icon,
+    }],
+  }) as { pages?: Array<{ id: string; url: string }> };
+
+  const page = result?.pages?.[0];
+  if (!page?.id) {
+    throw new Error(`建立頁面「${title}」失敗：Notion 未回傳 ID（回傳：${JSON.stringify(result)}）`);
+  }
+  return { id: page.id, url: page.url };
 }
 
 // ========== 建立客戶總頁 ==========
-async function createClientParentPage(input: NotionSaveInput): Promise<string> {
+async function createClientParentPage(input: NotionSaveInput): Promise<{ id: string; url: string }> {
   const today = new Date().toISOString().slice(0, 10);
   const pageTitle = `${input.clientName} ｜ ${input.projectType} × ${input.scriptCount}`;
 
@@ -123,23 +157,14 @@ ${input.sellingPoints}
 
 **⚙️ 執行版**：提供給攝影師與阿韋（剪輯師），含拍攝排程、剪映專業版指令與分鏡表格。`;
 
-  const result = callNotionMcp("notion-create-pages", {
-    parent_id: B2_SCRIPT_LIBRARY_PAGE_ID,
-    title: pageTitle,
-    content,
-    icon: "🎬",
-  }) as { id?: string; url?: string };
-
-  if (!result?.id) throw new Error("建立客戶總頁失敗：Notion 未回傳 ID");
-  return result.id;
+  return createNotionPage(B2_SCRIPT_LIBRARY_PAGE_ID, pageTitle, content, "🎬");
 }
 
 // ========== 建立客戶版子頁 ==========
 async function createClientVersionPage(
   parentId: string,
   input: NotionSaveInput
-): Promise<string> {
-  // 解析 finalOutput 中的腳本，提取客戶可讀版本
+): Promise<{ id: string; url: string }> {
   const cleanedScript = extractClientFriendlyScript(input.finalOutput);
 
   const content = `> 📌 **本頁面用途**：提供給涵勻與客戶確認策略方向、台詞邏輯，以及業主需準備的道具/服裝清單。
@@ -165,46 +190,89 @@ ${cleanedScript}
 
 ## 確認紀錄
 
-| 確認項目 | 狀態 | 備註 |
-|---|---|---|
-| 策略方向確認 | 待確認 | |
-| 台詞修改 | 待確認 | |
-| 拍攝時間確認 | 待確認 | |
+<table header-row="true">
+<tr>
+<td>確認項目</td>
+<td>狀態</td>
+<td>備註</td>
+</tr>
+<tr>
+<td>策略方向確認</td>
+<td>待確認</td>
+<td></td>
+</tr>
+<tr>
+<td>台詞修改</td>
+<td>待確認</td>
+<td></td>
+</tr>
+<tr>
+<td>拍攝時間確認</td>
+<td>待確認</td>
+<td></td>
+</tr>
+</table>
 
 ---
 
 > ⚠️ 此版本**不含**拍攝技術細節（分鏡、剪輯指令），如需查看請至「執行版」。`;
 
-  const result = callNotionMcp("notion-create-pages", {
-    parent_id: parentId,
-    title: "👤 客戶版 — 策略確認 & 台詞腳本",
-    content,
-    icon: "👤",
-  }) as { id?: string; url?: string };
-
-  if (!result?.id) throw new Error("建立客戶版子頁失敗");
-  return result.id;
+  return createNotionPage(parentId, "👤 客戶版 — 策略確認 & 台詞腳本", content, "👤");
 }
 
 // ========== 建立執行版子頁 ==========
 async function createExecVersionPage(
   parentId: string,
   input: NotionSaveInput
-): Promise<string> {
+): Promise<{ id: string; url: string }> {
+  const gptSection = input.gptOutput
+    ? `## GPT 發散引擎原始 Hook（備用素材）
+
+> 以下為 GPT 發散引擎產出的原始 Hook 草稿，可作為備用素材或 A/B 測試使用。
+
+${input.gptOutput}
+
+---
+
+`
+    : "";
+
   const content = `> 📌 **本頁面用途**：提供給攝影師與阿韋（剪輯師）照表操課。含完整分鏡、剪映指令、音效建議。
 
 ---
 
 ## 拍攝規格
 
-| 項目 | 規格 |
-|---|---|
-| 拍攝設備 | iPhone 17 Pro + Pocket 3 |
-| 收音設備 | DJI 2 無線麥克風 |
-| 補光設備 | 補光燈 |
-| 拍攝時間 | 3 小時內完成 |
-| 影片規格 | 直式 9:16，${input.duration} 秒 |
-| 出鏡方式 | ${input.appearance} |
+<table header-row="true">
+<tr>
+<td>項目</td>
+<td>規格</td>
+</tr>
+<tr>
+<td>拍攝設備</td>
+<td>iPhone 17 Pro + Pocket 3</td>
+</tr>
+<tr>
+<td>收音設備</td>
+<td>DJI 2 無線麥克風</td>
+</tr>
+<tr>
+<td>補光設備</td>
+<td>補光燈</td>
+</tr>
+<tr>
+<td>拍攝時間</td>
+<td>3 小時內完成</td>
+</tr>
+<tr>
+<td>影片規格</td>
+<td>直式 9:16，${input.duration} 秒</td>
+</tr>
+<tr>
+<td>出鏡方式</td>
+<td>${input.appearance}</td>
+</tr>
+</table>
 
 ---
 
@@ -214,24 +282,45 @@ ${input.finalOutput}
 
 ---
 
-${input.gptOutput ? `## GPT 發散引擎原始 Hook（備用素材）
+${gptSection}## 剪映專業版指令
 
-> 以下為 GPT 發散引擎產出的原始 Hook 草稿，可作為備用素材或 A/B 測試使用。
-
-${input.gptOutput}
-
----
-
-` : ""}## 剪映專業版指令
-
-| 步驟 | 操作 | 備註 |
-|---|---|---|
-| 1 | 匯入素材，建立 9:16 序列 | |
-| 2 | 依腳本分鏡剪輯 | 注意節奏感 |
-| 3 | 加入字卡（依腳本文字疊層） | 字體建議：黑體/圓體 |
-| 4 | 音效處理（依腳本音效建議） | |
-| 5 | 調色（依品牌色調） | |
-| 6 | 輸出 1080×1920，30fps | |
+<table header-row="true">
+<tr>
+<td>步驟</td>
+<td>操作</td>
+<td>備註</td>
+</tr>
+<tr>
+<td>1</td>
+<td>匯入素材，建立 9:16 序列</td>
+<td></td>
+</tr>
+<tr>
+<td>2</td>
+<td>依腳本分鏡剪輯</td>
+<td>注意節奏感</td>
+</tr>
+<tr>
+<td>3</td>
+<td>加入字卡（依腳本文字疊層）</td>
+<td>字體建議：黑體/圓體</td>
+</tr>
+<tr>
+<td>4</td>
+<td>音效處理（依腳本音效建議）</td>
+<td></td>
+</tr>
+<tr>
+<td>5</td>
+<td>調色（依品牌色調）</td>
+<td></td>
+</tr>
+<tr>
+<td>6</td>
+<td>輸出 1080×1920，30fps</td>
+<td></td>
+</tr>
+</table>
 
 ---
 
@@ -239,35 +328,49 @@ ${input.gptOutput}
 
 投廣後請回填以下數據：
 
-| 指標 | 數值 | 備註 |
-|---|---|---|
-| 觀看完成率 | | |
-| 點擊率 (CTR) | | |
-| 轉換率 | | |
-| CPA | | |
-| 達標狀態 | 待評估 | 達標後入庫 A1 腳本庫 |`;
+<table header-row="true">
+<tr>
+<td>指標</td>
+<td>數值</td>
+<td>備註</td>
+</tr>
+<tr>
+<td>觀看完成率</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>點擊率 (CTR)</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>轉換率</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>CPA</td>
+<td></td>
+<td></td>
+</tr>
+<tr>
+<td>達標狀態</td>
+<td>待評估</td>
+<td>達標後入庫 A1 腳本庫</td>
+</tr>
+</table>`;
 
-  const result = callNotionMcp("notion-create-pages", {
-    parent_id: parentId,
-    title: "⚙️ 執行版 — 攝影師 & 剪輯師照表操課",
-    content,
-    icon: "⚙️",
-  }) as { id?: string; url?: string };
-
-  if (!result?.id) throw new Error("建立執行版子頁失敗");
-  return result.id;
+  return createNotionPage(parentId, "⚙️ 執行版 — 攝影師 & 剪輯師照表操課", content, "⚙️");
 }
 
 // ========== 解析腳本，提取客戶友好版本 ==========
 function extractClientFriendlyScript(rawScript: string): string {
-  // 移除技術性標記，保留口播文案與策略說明
-  // 移除 shotDirection、soundEffect、performanceNote 等技術欄位的標題
   const lines = rawScript.split("\n");
   const filtered: string[] = [];
   let skipNext = false;
 
   for (const line of lines) {
-    // 跳過純技術性的執行指令行（攝影師/剪輯師用）
     if (
       line.match(/^[>\s]*🎥\s*畫面/) ||
       line.match(/^[>\s]*🎬\s*分鏡/) ||
@@ -297,20 +400,21 @@ export async function saveScriptToNotion(
     console.log(`[NotionWrite] 開始建立客戶腳本頁面：${input.clientName}`);
 
     // Step 1: 建立客戶總頁
-    const parentPageId = await createClientParentPage(input);
-    console.log(`[NotionWrite] 客戶總頁建立完成：${parentPageId}`);
+    const parentPage = await createClientParentPage(input);
+    console.log(`[NotionWrite] 客戶總頁建立完成：${parentPage.id}`);
 
     // Step 2: 建立客戶版子頁
-    const clientPageId = await createClientVersionPage(parentPageId, input);
-    console.log(`[NotionWrite] 客戶版建立完成：${clientPageId}`);
+    const clientPage = await createClientVersionPage(parentPage.id, input);
+    console.log(`[NotionWrite] 客戶版建立完成：${clientPage.id}`);
 
     // Step 3: 建立執行版子頁
-    const execPageId = await createExecVersionPage(parentPageId, input);
-    console.log(`[NotionWrite] 執行版建立完成：${execPageId}`);
+    const execPage = await createExecVersionPage(parentPage.id, input);
+    console.log(`[NotionWrite] 執行版建立完成：${execPage.id}`);
 
-    const parentPageUrl = `https://app.notion.com/p/${parentPageId.replace(/-/g, "")}`;
-    const clientPageUrl = `https://app.notion.com/p/${clientPageId.replace(/-/g, "")}`;
-    const execPageUrl = `https://app.notion.com/p/${execPageId.replace(/-/g, "")}`;
+    // 使用 Notion 直接回傳的 URL（已包含正確格式）
+    const parentPageUrl = parentPage.url || `https://app.notion.com/p/${parentPage.id.replace(/-/g, "")}`;
+    const clientPageUrl = clientPage.url || `https://app.notion.com/p/${clientPage.id.replace(/-/g, "")}`;
+    const execPageUrl = execPage.url || `https://app.notion.com/p/${execPage.id.replace(/-/g, "")}`;
 
     console.log(`[NotionWrite] ✅ 全部完成！客戶總頁：${parentPageUrl}`);
 
