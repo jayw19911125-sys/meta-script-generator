@@ -12,7 +12,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/component
 import { Zap, Target, Film, Sparkles, ChevronRight, CheckCircle2, History, RefreshCw, Trash2, PenLine, Send, BookOpen, RotateCcw, LogIn, Layers } from "lucide-react";
 import MatrixMode from "@/components/MatrixMode";
 import { toast } from "sonner";
-import ScriptOutput from "@/components/ScriptOutput";
+import ScriptOutput, { type NotionSavePayload } from "@/components/ScriptOutput";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { getLoginUrl } from "@/const";
@@ -80,6 +80,7 @@ export default function Home() {
   };
 
   const [engineStatus, setEngineStatus] = useState<EngineStatus>(IDLE_STATUS);
+  const [lastHistoryId, setLastHistoryId] = useState<number | null>(null);
   const [formData, setFormData] = useState<FormData>({
     industry: "",
     productName: "",
@@ -194,6 +195,7 @@ export default function Home() {
     try {
       const res = await dualMutation.mutateAsync({ input: toPromptInput(), meta: buildMeta(), engineConfig });
       stopProgress();
+      setLastHistoryId(res.historyId ?? null);
       setEngineStatus({
         phase: "claude_done",
         gptOutput: res.gptOutput,
@@ -236,6 +238,7 @@ export default function Home() {
         engineConfig,
       });
       stopProgress();
+      setLastHistoryId(res.historyId ?? null);
       setEngineStatus(prev => ({ ...prev, phase: "claude_done", claudeOutput: res.finalOutput, progress: 100, progressLabel: `${label} 整合完成 ✓` }));
       refreshHistory();
     } catch (e) {
@@ -259,6 +262,7 @@ export default function Home() {
         engineConfig,
       });
       stopProgress();
+      setLastHistoryId(res.historyId ?? null);
       setEngineStatus({
         phase: "claude_done",
         gptOutput: customHooks,
@@ -857,7 +861,23 @@ export default function Home() {
                       </div>
                     </details>
                   )}
-                  <ScriptOutput content={viewingHistory.finalOutput} />
+                  <ScriptOutput
+                    content={viewingHistory.finalOutput}
+                    notionPayload={{
+                      projectType: "Meta 導購型短影音廣告",
+                      industry: viewingHistory.industry,
+                      funnel: viewingHistory.funnel,
+                      duration: formData.duration || "30",
+                      appearance: toLabel(APPEARANCES, formData.appearance) || "真人出鏡",
+                      tone: toLabel(TONES, formData.tone) || "專業",
+                      targetAudience: formData.targetAudience || "",
+                      sellingPoints: formData.sellingPoints || "",
+                      scriptCount: 1,
+                      gptOutput: viewingHistory.gptOutput ?? undefined,
+                      engineMode: viewingHistory.engine,
+                      historyId: viewingHistory.id,
+                    }}
+                  />
                 </>
               ) : (
                 engineStatus.claudeOutput && (
@@ -865,6 +885,20 @@ export default function Home() {
                     content={engineStatus.claudeOutput}
                     onRetry={() => handleReintegrate("claude")}
                     isRetrying={engineStatus.phase === "claude_generating"}
+                    notionPayload={{
+                      projectType: "Meta 導購型短影音廣告",
+                      industry: toLabel(INDUSTRIES, formData.industry),
+                      funnel: toLabel(FUNNELS, formData.funnel),
+                      duration: formData.duration,
+                      appearance: toLabel(APPEARANCES, formData.appearance),
+                      tone: toLabel(TONES, formData.tone),
+                      targetAudience: formData.targetAudience,
+                      sellingPoints: formData.sellingPoints,
+                      scriptCount: 1,
+                      gptOutput: engineStatus.gptOutput ?? undefined,
+                      engineMode: `${engineConfig.scatterModel} → ${engineConfig.integrateModel}`,
+                      historyId: lastHistoryId,
+                    }}
                   />
                 )
               )}

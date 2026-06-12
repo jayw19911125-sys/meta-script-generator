@@ -1,5 +1,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
+import { saveScriptToNotion } from "../notionWriteService";
+import type { NotionSaveInput } from "../notionWriteService";
 import {
   deleteScriptHistory,
   insertScriptHistory,
@@ -162,6 +164,53 @@ export const scriptRouter = router({
       );
 
       return { finalOutput, historyId };
+    }),
+
+  // ===== 一鍵存入 Notion B2 客戶腳本庫 =====
+  saveToNotion: protectedProcedure
+    .input(z.object({
+      clientName: z.string().min(1, "客戶名稱不能為空"),
+      projectType: z.string().min(1),
+      industry: z.string().min(1),
+      funnel: z.string().min(1),
+      duration: z.string().min(1),
+      appearance: z.string().min(1),
+      tone: z.string().min(1),
+      targetAudience: z.string().min(1),
+      sellingPoints: z.string().min(1),
+      scriptCount: z.number().int().min(1).max(20).default(1),
+      finalOutput: z.string().min(1, "腳本內容不能為空"),
+      gptOutput: z.string().optional(),
+      engineMode: z.string().min(1),
+      historyId: z.number().int().positive().nullable().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const saveInput: NotionSaveInput = {
+        clientName: input.clientName,
+        projectType: input.projectType,
+        industry: input.industry,
+        funnel: input.funnel,
+        duration: input.duration,
+        appearance: input.appearance,
+        tone: input.tone,
+        targetAudience: input.targetAudience,
+        sellingPoints: input.sellingPoints,
+        scriptCount: input.scriptCount,
+        finalOutput: input.finalOutput,
+        gptOutput: input.gptOutput,
+        engineMode: input.engineMode,
+        historyId: input.historyId,
+      };
+      const result = await saveScriptToNotion(saveInput);
+      if (!result.success) {
+        throw new Error(result.error ?? "存入 Notion 失敗，請稍後再試");
+      }
+      return {
+        success: true,
+        parentPageUrl: result.parentPageUrl!,
+        clientPageUrl: result.clientPageUrl!,
+        execPageUrl: result.execPageUrl!,
+      };
     }),
 
   // ===== 歷史紀錄 =====
