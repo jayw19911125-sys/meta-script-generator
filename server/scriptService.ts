@@ -15,6 +15,7 @@ import {
 import {
   syncNotionKnowledge,
   getFunnelFramework,
+  getHookKnowledgeText,
 } from "./notionSyncService";
 import type { PromptInput, EngineConfig } from "@shared/scriptTypes";
 import { DEFAULT_ENGINE_CONFIG } from "@shared/scriptTypes";
@@ -48,17 +49,25 @@ function extractText(result: Awaited<ReturnType<typeof invokeLLM>>): string {
 }
 
 /**
- * 取得 Notion L 系列框架（帶快取，失敗不中斷流程）。
+ * 取得 Notion L 系列框架 + A3 Hook 數據（帶快取，失敗不中斷流程）。
  * 若 Notion 無法存取，回傳 null，prompt 自動降級到通用矩陣。
  */
-async function getLFramework(funnelValue: string) {
+async function getNotionKnowledge(funnelValue: string, industry: string) {
   try {
     const cache = await syncNotionKnowledge();
-    return getFunnelFramework(cache, funnelValue);
+    const lFramework = getFunnelFramework(cache, funnelValue);
+    const hookKnowledgeText = getHookKnowledgeText(cache, industry);
+    return { lFramework, hookKnowledgeText };
   } catch (e) {
     console.warn("[ScriptService] Notion 快取取得失敗，使用通用矩陣:", e);
-    return null;
+    return { lFramework: null, hookKnowledgeText: "" };
   }
+}
+
+/** 小工具：只取 lFramework（向下相容） */
+async function getLFramework(funnelValue: string) {
+  const { lFramework } = await getNotionKnowledge(funnelValue, "");
+  return lFramework;
 }
 
 /**
@@ -70,14 +79,15 @@ export async function generateHooks(
   input: PromptInput,
   config: EngineConfig = DEFAULT_ENGINE_CONFIG
 ): Promise<string> {
-  const lFramework = await getLFramework(input.funnel);
+  // v3.1：同時注入 L 系列框架 + A3 Hook 數據
+  const { lFramework, hookKnowledgeText } = await getNotionKnowledge(input.funnel, input.industry);
   const { scatterVendor, scatterModel } = config;
 
   const result = await invokeLLM({
     model: scatterModel,
     messages: [
       { role: "system", content: getSystemPrompt(scatterVendor) },
-      { role: "user", content: buildGptPrompt(input, lFramework) },
+      { role: "user", content: buildGptPrompt(input, lFramework, hookKnowledgeText) },
     ],
     max_tokens: getMaxTokens(scatterVendor),
   });
@@ -156,15 +166,15 @@ export async function runDualEngine(
 ): Promise<{ gptOutput: string; finalOutput: string }> {
   const { scatterVendor, scatterModel, integrateVendor, integrateModel } = config;
 
-  // 預先取得 L 系列框架，兩個引擎共用，避免重複呼叫 Notion
-  const lFramework = await getLFramework(input.funnel);
+  // v3.1：預先取得 L 系列框架 + A3 Hook 數據，兩個引擎共用，避免重複呼叫 Notion
+  const { lFramework, hookKnowledgeText } = await getNotionKnowledge(input.funnel, input.industry);
 
-  // Step 1：發散引擎
+  // Step 1：發散引擎（注入 L 系列 + A3 Hook 數據）
   const scatterResult = await invokeLLM({
     model: scatterModel,
     messages: [
       { role: "system", content: getSystemPrompt(scatterVendor) },
-      { role: "user", content: buildGptPrompt(input, lFramework) },
+      { role: "user", content: buildGptPrompt(input, lFramework, hookKnowledgeText) },
     ],
     max_tokens: getMaxTokens(scatterVendor),
   });

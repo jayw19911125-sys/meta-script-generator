@@ -46,6 +46,9 @@ function NotionSaveDialog({ payload, finalOutput, onClose }: NotionSaveDialogPro
     parentPageUrl: string;
     clientPageUrl: string;
     execPageUrl: string;
+    slackSent?: boolean;
+    mondayUpdated?: boolean;
+    mondayItemName?: string;
   } | null>(null);
 
   const saveToNotionMutation = trpc.script.saveToNotion.useMutation({
@@ -200,6 +203,7 @@ function NotionSaveDialog({ payload, finalOutput, onClose }: NotionSaveDialogPro
               <span className="text-sm font-medium">已成功存入 Notion！</span>
             </div>
 
+            {/* Notion 頁面連結 */}
             <div className="space-y-2">
               <a
                 href={saveResult.parentPageUrl}
@@ -228,6 +232,32 @@ function NotionSaveDialog({ payload, finalOutput, onClose }: NotionSaveDialogPro
                 <span className="text-foreground">⚙️ 執行版</span>
                 <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
               </a>
+            </div>
+
+            {/* 自動化通知狀態 */}
+            <div className="bg-muted/30 rounded-lg px-3 py-2.5 space-y-1.5">
+              <p className="text-xs text-muted-foreground font-medium mb-1.5">自動化執行狀態</p>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">💬 Slack #影音製作</span>
+                {saveResult.slackSent ? (
+                  <span className="text-green-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" /> 已通知
+                  </span>
+                ) : (
+                  <span className="text-amber-400 text-xs">未發送</span>
+                )}
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="text-muted-foreground">📊 Monday 專案狀態</span>
+                {saveResult.mondayUpdated ? (
+                  <span className="text-green-400 flex items-center gap-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span className="truncate max-w-[120px]">{saveResult.mondayItemName ?? "已更新"}</span>
+                  </span>
+                ) : (
+                  <span className="text-muted-foreground text-xs">未找到對應項目</span>
+                )}
+              </div>
             </div>
 
             <Button

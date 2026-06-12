@@ -2,6 +2,7 @@ import { z } from "zod";
 import { protectedProcedure, router } from "../_core/trpc";
 import { saveScriptToNotion } from "../notionWriteService";
 import type { NotionSaveInput } from "../notionWriteService";
+import { runPostSaveNotifications } from "../notifyService";
 import {
   deleteScriptHistory,
   insertScriptHistory,
@@ -205,11 +206,26 @@ export const scriptRouter = router({
       if (!result.success) {
         throw new Error(result.error ?? "存入 Notion 失敗，請稍後再試");
       }
+
+      // 後置通知：非同步執行，不阻塞回應（失敗不影響主流程）
+      const notifyResult = await runPostSaveNotifications({
+        clientName: input.clientName,
+        scriptCount: input.scriptCount,
+        projectType: input.projectType,
+        parentPageUrl: result.parentPageUrl!,
+        clientPageUrl: result.clientPageUrl!,
+        execPageUrl: result.execPageUrl!,
+      });
+
       return {
         success: true,
         parentPageUrl: result.parentPageUrl!,
         clientPageUrl: result.clientPageUrl!,
         execPageUrl: result.execPageUrl!,
+        // 通知狀態（供前端顯示）
+        slackSent: notifyResult.slackSent,
+        mondayUpdated: notifyResult.mondayUpdated,
+        mondayItemName: notifyResult.mondayItemName,
       };
     }),
 
