@@ -40,12 +40,15 @@ const engineConfigSchema = z.object({
   preset: z.enum(["premium", "standard", "lite", "custom"]),
 });
 
-/** 預設引擎配置（頂配），供未傳入 config 時使用 */
+/** 預設引擎配置（頂配），供未傳入 config 時使用。
+ * 注意：此處特意保留頂配預設（premium）而非共用的 standard，
+ * 因為從後端直接呼叫的情境（如測試、排程任務）應使用最高品質。
+ */
 const DEFAULT_CONFIG: EngineConfig = {
   scatterVendor: "gpt",
   scatterModel: "gpt-5",
   integrateVendor: "claude",
-  integrateModel: "claude-opus-4-7",
+  integrateModel: "claude-opus-4-6",  // 對齊 shared scriptTypes CLAUDE_MODELS
   preset: "premium",
 };
 

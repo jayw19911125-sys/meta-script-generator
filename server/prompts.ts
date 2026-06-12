@@ -318,8 +318,16 @@ Hook #N【公式類型】
 }
 
 // ========== Build Claude User Prompt ==========
-export function buildClaudePrompt(data: PromptInput, gptHooks: string, lFramework?: FunnelFramework | null): string {
+export function buildClaudePrompt(
+  data: PromptInput,
+  gptHooks: string,
+  lFramework?: FunnelFramework | null,
+  methodologySummary?: string
+): string {
   const lInjection = buildLFrameworkInjection(data.funnel, lFramework ?? null);
+  const methodologySection = methodologySummary
+    ? `\n${methodologySummary}\n`
+    : "";
   return `## 任務
 
 GPT 發散引擎已產出 Hook 草稿（見下方）。你的工作：
@@ -341,7 +349,7 @@ GPT 發散引擎已產出 Hook 草稿（見下方）。你的工作：
 - 出鏡：${data.appearance}
 - 語氣：${data.tone}
 
-${lInjection}
+${lInjection}${methodologySection}
 
 ## GPT 產出的 Hook 草稿
 

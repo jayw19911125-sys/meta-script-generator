@@ -16,6 +16,7 @@ import {
   syncNotionKnowledge,
   getFunnelFramework,
   getHookKnowledgeText,
+  getMethodologySummary,
 } from "./notionSyncService";
 import type { PromptInput, EngineConfig } from "@shared/scriptTypes";
 import { DEFAULT_ENGINE_CONFIG } from "@shared/scriptTypes";
@@ -57,10 +58,11 @@ async function getNotionKnowledge(funnelValue: string, industry: string) {
     const cache = await syncNotionKnowledge();
     const lFramework = getFunnelFramework(cache, funnelValue);
     const hookKnowledgeText = getHookKnowledgeText(cache, industry);
-    return { lFramework, hookKnowledgeText };
+    const methodologySummary = getMethodologySummary(cache);
+    return { lFramework, hookKnowledgeText, methodologySummary };
   } catch (e) {
     console.warn("[ScriptService] Notion 快取取得失敗，使用通用矩陣:", e);
-    return { lFramework: null, hookKnowledgeText: "" };
+    return { lFramework: null, hookKnowledgeText: "", methodologySummary: "" };
   }
 }
 
@@ -108,14 +110,15 @@ export async function integrateWithClaude(
   hooks: string,
   config: EngineConfig = DEFAULT_ENGINE_CONFIG
 ): Promise<string> {
-  const lFramework = await getLFramework(input.funnel);
+  // v3.1：同時注入 L 系列框架 + H 系列方法論
+  const { lFramework, methodologySummary } = await getNotionKnowledge(input.funnel, input.industry);
   const { integrateVendor, integrateModel } = config;
 
   const result = await invokeLLM({
     model: integrateModel,
     messages: [
       { role: "system", content: getSystemPrompt(integrateVendor) },
-      { role: "user", content: buildClaudePrompt(input, hooks, lFramework) },
+      { role: "user", content: buildClaudePrompt(input, hooks, lFramework, methodologySummary) },
     ],
     max_tokens: getMaxTokens(integrateVendor),
   });
@@ -166,8 +169,8 @@ export async function runDualEngine(
 ): Promise<{ gptOutput: string; finalOutput: string }> {
   const { scatterVendor, scatterModel, integrateVendor, integrateModel } = config;
 
-  // v3.1：預先取得 L 系列框架 + A3 Hook 數據，兩個引擎共用，避免重複呼叫 Notion
-  const { lFramework, hookKnowledgeText } = await getNotionKnowledge(input.funnel, input.industry);
+  // v3.1：預先取得 L 系列框架 + A3 Hook 數據 + H 系列方法論，兩個引擎共用，避免重複呼叫 Notion
+  const { lFramework, hookKnowledgeText, methodologySummary } = await getNotionKnowledge(input.funnel, input.industry);
 
   // Step 1：發散引擎（注入 L 系列 + A3 Hook 數據）
   const scatterResult = await invokeLLM({
@@ -183,12 +186,12 @@ export async function runDualEngine(
     throw new Error(`發散引擎（${scatterModel}）回傳空內容，請重試`);
   }
 
-  // Step 2：整合引擎
+  // Step 2：整合引擎（注入 L 系列 + H 系列方法論）
   const integrateResult = await invokeLLM({
     model: integrateModel,
     messages: [
       { role: "system", content: getSystemPrompt(integrateVendor) },
-      { role: "user", content: buildClaudePrompt(input, gptOutput, lFramework) },
+      { role: "user", content: buildClaudePrompt(input, gptOutput, lFramework, methodologySummary) },
     ],
     max_tokens: getMaxTokens(integrateVendor),
   });
