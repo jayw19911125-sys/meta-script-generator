@@ -637,8 +637,19 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
       {modules.map((mod) => {
         const isRerunning = rerunningId === mod.id;
+        const isOtherRunning = !!rerunningId && !isRerunning;
         return (
-        <Card key={mod.id} className={`bg-card border-border/50 transition-all ${isRerunning ? 'opacity-60 animate-pulse' : ''}`}>
+        <Card
+          key={mod.id}
+          className={[
+            "bg-card border transition-all duration-300",
+            isRerunning
+              ? "border-primary/60 shadow-[0_0_0_2px_oklch(0.65_0.22_150/0.25)] scale-[1.01]"
+              : isOtherRunning
+              ? "border-border/30 opacity-50"
+              : "border-border/50 hover:border-border/80",
+          ].join(" ")}
+        >
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className={`text-xs font-bold ${color} ${bg} px-2 py-0.5 rounded-md`}>
@@ -651,16 +662,24 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
                     size="sm"
                     onClick={() => onRerun(mod)}
                     disabled={!!rerunningId}
-                    title="重新生成此卡片"
-                    className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                    title={isRerunning ? "生成中…" : "重新生成此卡片"}
+                    className={[
+                      "h-6 w-6 p-0 transition-colors",
+                      isRerunning
+                        ? "text-primary cursor-not-allowed"
+                        : "text-muted-foreground hover:text-primary",
+                    ].join(" ")}
                   >
-                    {isRerunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                    {isRerunning
+                      ? <Loader2 className="w-3 h-3 animate-spin" />
+                      : <RefreshCw className="w-3 h-3" />}
                   </Button>
                 )}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => onCopy(mod)}
+                  disabled={isRerunning}
                   className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
                 >
                   <Copy className="w-3 h-3" />
@@ -668,7 +687,16 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
               </div>
             </div>
           </CardHeader>
-          <CardContent className="space-y-3">
+
+          {/* 生成中遮罩 */}
+          {isRerunning && (
+            <div className="mx-4 mb-3 flex items-center gap-2 rounded-md bg-primary/10 border border-primary/20 px-3 py-2">
+              <Loader2 className="w-3.5 h-3.5 animate-spin text-primary shrink-0" />
+              <span className="text-xs text-primary font-medium">AI 正在重新生成此卡片…</span>
+            </div>
+          )}
+
+          <CardContent className={`space-y-3 transition-opacity duration-300 ${isRerunning ? 'opacity-40' : 'opacity-100'}`}>
             <div>
               <p className="text-xs font-medium text-muted-foreground mb-1">口播文案</p>
               <p className="text-sm text-foreground leading-relaxed">{mod.text}</p>
@@ -694,6 +722,7 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
                 placeholder="加入備註..."
                 value={notes[mod.id] ?? ""}
                 onChange={e => onNoteChange(mod.id, e.target.value)}
+                disabled={isRerunning}
                 className="text-xs bg-input border-border/30 resize-none h-14"
               />
             </div>
