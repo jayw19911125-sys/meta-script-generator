@@ -140,11 +140,12 @@ describe("scriptRouter 結構驗證", () => {
     expect(procedures).toContain("deleteHistory");
   });
 
-  it("matrixRouter 應包含 4 個步驟 procedure", () => {
+  it("matrixRouter 應包含 5 個 procedure（含 rerunCard）", () => {
     const procedures = Object.keys((matrixRouter as any)._def.procedures ?? {});
     expect(procedures).toContain("generateHooks");
     expect(procedures).toContain("generateBodies");
     expect(procedures).toContain("generateCtas");
     expect(procedures).toContain("generateRecommendations");
+    expect(procedures).toContain("rerunCard");
   });
 });

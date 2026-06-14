@@ -250,7 +250,8 @@ import {
   generateMatrixHooks,
   generateMatrixBodies,
   generateMatrixCtas,
-  generateMatrixRecommendations
+  generateMatrixRecommendations,
+  rerunSingleCard,
 } from "../scriptService";
 
 export const matrixRouter = router({
@@ -299,5 +300,25 @@ export const matrixRouter = router({
     .mutation(async ({ input }) => {
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       return await generateMatrixRecommendations(input.input, input.matrixJson, config);
+    }),
+
+  // 局部重跑：只重新生成指定卡片，回傳單一 ScriptModule
+  rerunCard: protectedProcedure
+    .input(z.object({
+      step: z.enum(["hook", "body", "cta"]),
+      targetIndex: z.number().int().min(1).max(3),
+      input: promptInputSchema,
+      contextJson: z.string().default(""),
+      engineConfig: engineConfigSchema.optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const config = input.engineConfig ?? DEFAULT_CONFIG;
+      return await rerunSingleCard(
+        input.step,
+        input.targetIndex,
+        input.input,
+        input.contextJson,
+        config
+      );
     }),
 });

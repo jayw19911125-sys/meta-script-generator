@@ -75,6 +75,7 @@ export default function MatrixPage() {
   });
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [selectedRec, setSelectedRec] = useState<number>(0);
+  const [rerunningId, setRerunningId] = useState<string | null>(null);
 
   // tRPC mutations
   const hooksMutation = trpc.matrix.generateHooks.useMutation({
@@ -117,7 +118,61 @@ export default function MatrixPage() {
     onError: (err: { message: string }) => toast.error(`推薦評分失敗：${err.message}`),
   });
 
-  const isAnyLoading = hooksMutation.isPending || bodiesMutation.isPending || ctasMutation.isPending || recsMutation.isPending;
+  const isAnyLoading = hooksMutation.isPending || bodiesMutation.isPending || ctasMutation.isPending || recsMutation.isPending || !!rerunningId;
+
+  // 局部重跑：使用專屬 rerunCard procedure，只替換指定卡片，其他卡片保持不變
+  const rerunCardMutation = trpc.matrix.rerunCard.useMutation();
+
+  const handleRerunHook = (mod: ScriptModule) => {
+    setRerunningId(mod.id);
+    rerunCardMutation.mutate(
+      { step: "hook", targetIndex: mod.index, input: form, contextJson: "", engineConfig },
+      {
+        onSuccess: (replacement: unknown) => {
+          if (replacement) {
+            setMatrix(m => ({ ...m, hooks: m.hooks.map(h => h.id === mod.id ? { ...(replacement as ScriptModule), id: mod.id } : h) }));
+          }
+          setRerunningId(null);
+          toast.success(`Hook ${mod.index} 重新生成完成！`);
+        },
+        onError: () => setRerunningId(null),
+      }
+    );
+  };
+
+  const handleRerunBody = (mod: ScriptModule) => {
+    setRerunningId(mod.id);
+    rerunCardMutation.mutate(
+      { step: "body", targetIndex: mod.index, input: form, contextJson: JSON.stringify(matrix.hooks), engineConfig },
+      {
+        onSuccess: (replacement: unknown) => {
+          if (replacement) {
+            setMatrix(m => ({ ...m, bodies: m.bodies.map(b => b.id === mod.id ? { ...(replacement as ScriptModule), id: mod.id } : b) }));
+          }
+          setRerunningId(null);
+          toast.success(`Body ${mod.index} 重新生成完成！`);
+        },
+        onError: () => setRerunningId(null),
+      }
+    );
+  };
+
+  const handleRerunCta = (mod: ScriptModule) => {
+    setRerunningId(mod.id);
+    rerunCardMutation.mutate(
+      { step: "cta", targetIndex: mod.index, input: form, contextJson: JSON.stringify(matrix.bodies), engineConfig },
+      {
+        onSuccess: (replacement: unknown) => {
+          if (replacement) {
+            setMatrix(m => ({ ...m, ctas: m.ctas.map(c => c.id === mod.id ? { ...(replacement as ScriptModule), id: mod.id } : c) }));
+          }
+          setRerunningId(null);
+          toast.success(`CTA ${mod.index} 重新生成完成！`);
+        },
+        onError: () => setRerunningId(null),
+      }
+    );
+  };
 
   const validateForm = () => {
     if (!form.productName.trim()) { toast.error("請填寫產品名稱"); return false; }
@@ -359,6 +414,8 @@ export default function MatrixPage() {
             notes={notes}
             onNoteChange={(id, val) => setNotes(n => ({ ...n, [id]: val }))}
             onCopy={handleCopyModule}
+            rerunningId={rerunningId}
+            onRerun={handleRerunHook}
           />
           <div className="flex justify-end">
             <Button onClick={handleGenerateBodies} disabled={isAnyLoading}
@@ -384,6 +441,8 @@ export default function MatrixPage() {
             notes={notes}
             onNoteChange={(id, val) => setNotes(n => ({ ...n, [id]: val }))}
             onCopy={handleCopyModule}
+            rerunningId={rerunningId}
+            onRerun={handleRerunBody}
           />
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setCurrentStep("hooks")} className="border-border/50">
@@ -412,6 +471,8 @@ export default function MatrixPage() {
             notes={notes}
             onNoteChange={(id, val) => setNotes(n => ({ ...n, [id]: val }))}
             onCopy={handleCopyModule}
+            rerunningId={rerunningId}
+            onRerun={handleRerunCta}
           />
           <div className="flex justify-between">
             <Button variant="outline" onClick={() => setCurrentStep("bodies")} className="border-border/50">
@@ -567,26 +628,44 @@ interface ModuleGridProps {
   notes: Record<string, string>;
   onNoteChange: (id: string, val: string) => void;
   onCopy: (mod: ScriptModule) => void;
+  rerunningId?: string | null;
+  onRerun?: (mod: ScriptModule) => void;
 }
 
-function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy }: ModuleGridProps) {
+function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, rerunningId, onRerun }: ModuleGridProps) {
   return (
     <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-      {modules.map((mod) => (
-        <Card key={mod.id} className="bg-card border-border/50">
+      {modules.map((mod) => {
+        const isRerunning = rerunningId === mod.id;
+        return (
+        <Card key={mod.id} className={`bg-card border-border/50 transition-all ${isRerunning ? 'opacity-60 animate-pulse' : ''}`}>
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <div className={`text-xs font-bold ${color} ${bg} px-2 py-0.5 rounded-md`}>
                 {label} {mod.index}
               </div>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => onCopy(mod)}
-                className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
-              >
-                <Copy className="w-3 h-3" />
-              </Button>
+              <div className="flex items-center gap-1">
+                {onRerun && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onRerun(mod)}
+                    disabled={!!rerunningId}
+                    title="重新生成此卡片"
+                    className="h-6 w-6 p-0 text-muted-foreground hover:text-primary"
+                  >
+                    {isRerunning ? <Loader2 className="w-3 h-3 animate-spin" /> : <RefreshCw className="w-3 h-3" />}
+                  </Button>
+                )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onCopy(mod)}
+                  className="h-6 w-6 p-0 text-muted-foreground hover:text-foreground"
+                >
+                  <Copy className="w-3 h-3" />
+                </Button>
+              </div>
             </div>
           </CardHeader>
           <CardContent className="space-y-3">
@@ -620,7 +699,8 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy }: 
             </div>
           </CardContent>
         </Card>
-      ))}
+        );
+      })}
     </div>
   );
 }

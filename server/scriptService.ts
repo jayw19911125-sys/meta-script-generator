@@ -307,6 +307,139 @@ export async function generateMatrixCtas(
 }
 
 /**
+ * 矩陣局部重跑：只重新生成指定 step 的第 targetIndex 張卡片
+ * 回傳單一 ScriptModule，不影響其他卡片
+ */
+export async function rerunSingleCard(
+  step: "hook" | "body" | "cta",
+  targetIndex: number,
+  input: PromptInput,
+  contextJson: string, // hooks/bodies JSON for body/cta context
+  config: EngineConfig = DEFAULT_ENGINE_CONFIG
+) {
+  const lFramework = await getLFramework(input.funnel);
+  const { scatterVendor, scatterModel, integrateVendor, integrateModel } = config;
+
+  let promptText: string;
+  let vendor: "gpt" | "claude";
+  let model: string;
+
+  if (step === "hook") {
+    vendor = scatterVendor;
+    model = scatterModel;
+    promptText = `## 任務：只重新生成 Hook ${targetIndex}，其他 Hook 保持不變
+
+### 產品資訊
+- 產業：${input.industry}
+- 產品：${input.productName}
+- 賣點：${input.sellingPoints}
+- 受眾：${input.targetAudience}
+- 漏斗：${input.funnel}
+- 時長：${input.duration} 秒
+- 出鏡：${input.appearance}
+- 語氣：${input.tone}
+
+### 要求
+請只輸出 1 個 Hook 物件（index 固定為 ${targetIndex}），使用與原版完全不同的心理切入角度。
+
+### 輸出格式（只輸出 1 個物件，不是陣列）
+{
+  "id": "h${targetIndex}",
+  "type": "hook",
+  "index": ${targetIndex},
+  "text": "口白（≤15字）",
+  "shotDirection": "畫面建議",
+  "soundEffect": "音效與 BGM",
+  "performanceNote": "人物動向指令"
+}
+
+台灣用語、正體中文、直接輸出純 JSON 物件，不要 Markdown！`;
+  } else if (step === "body") {
+    vendor = integrateVendor;
+    model = integrateModel;
+    promptText = `## 任務：只重新生成 Body ${targetIndex}，其他 Body 保持不變
+
+### 產品資訊
+- 產業：${input.industry}
+- 產品：${input.productName}
+- 賣點：${input.sellingPoints}
+- 受眾：${input.targetAudience}
+- 漏斗：${input.funnel}
+- 時長：${input.duration} 秒
+
+### 已有的 Hook 列表（參考用）
+${contextJson}
+
+### 要求
+請只輸出 1 個 Body 物件（index 固定為 ${targetIndex}），使用與原版完全不同的角度。
+
+### 輸出格式（只輸出 1 個物件，不是陣列）
+{
+  "id": "b${targetIndex}",
+  "type": "body",
+  "index": ${targetIndex},
+  "text": "口白（≤30字）",
+  "shotDirection": "畫面建議",
+  "soundEffect": "音效與 BGM",
+  "performanceNote": "人物動向指令"
+}
+
+台灣用語、正體中文、直接輸出純 JSON 物件，不要 Markdown！`;
+  } else {
+    vendor = integrateVendor;
+    model = integrateModel;
+    promptText = `## 任務：只重新生成 CTA ${targetIndex}，其他 CTA 保持不變
+
+### 產品資訊
+- 產業：${input.industry}
+- 產品：${input.productName}
+- 賣點：${input.sellingPoints}
+- 受眾：${input.targetAudience}
+- 漏斗：${input.funnel}
+- 時長：${input.duration} 秒
+
+### 已有的 Body 列表（參考用）
+${contextJson}
+
+### 要求
+請只輸出 1 個 CTA 物件（index 固定為 ${targetIndex}），使用與原版完全不同的行動呼籲角度。
+
+### 輸出格式（只輸出 1 個物件，不是陣列）
+{
+  "id": "c${targetIndex}",
+  "type": "cta",
+  "index": ${targetIndex},
+  "text": "口白（≤10字）",
+  "shotDirection": "畫面建議",
+  "soundEffect": "音效與 BGM",
+  "performanceNote": "人物動向指令"
+}
+
+台灣用語、正體中文、直接輸出純 JSON 物件，不要 Markdown！`;
+  }
+
+  const result = await invokeLLM({
+    model,
+    messages: [
+      { role: "system", content: getSystemPrompt(vendor) },
+      { role: "user", content: promptText },
+    ],
+    max_tokens: getMaxTokens(vendor),
+  });
+
+  const text = extractText(result);
+  // 嘗試解析單一物件
+  try {
+    const cleaned = text.replace(/```json\n?|```\n?/g, "").trim();
+    return JSON.parse(cleaned);
+  } catch {
+    // fallback: 嘗試從陣列取第一個
+    const arr = parseJsonArray(text);
+    return arr[0] ?? null;
+  }
+}
+
+/**
  * 矩陣生成 Step 4: AI 推薦與評分 (整合引擎)
  */
 export async function generateMatrixRecommendations(
