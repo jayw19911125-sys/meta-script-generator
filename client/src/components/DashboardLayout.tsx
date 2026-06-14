@@ -23,8 +23,8 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import { PENDING_APPROVAL_ERR_MSG } from "@shared/const";
-import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield, ShieldCheck, Settings } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield, ShieldCheck, Settings, Loader2 } from "lucide-react";
+import { CSSProperties, useEffect, useRef, useState, createContext, useContext } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -35,6 +35,13 @@ const menuItems = [
   { icon: History, label: "歷史紀錄", path: "/history" },
   { icon: Settings, label: "系統設定", path: "/settings" },
 ];
+
+// 全局生成狀態 context，供 Tab Bar 讀取
+export const GeneratingContext = createContext<{ isGenerating: boolean; setIsGenerating: (v: boolean) => void }>({
+  isGenerating: false,
+  setIsGenerating: () => {},
+});
+export const useGenerating = () => useContext(GeneratingContext);
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
 const DEFAULT_WIDTH = 240;
@@ -50,6 +57,7 @@ export default function DashboardLayout({
     const saved = localStorage.getItem(SIDEBAR_WIDTH_KEY);
     return saved ? parseInt(saved, 10) : DEFAULT_WIDTH;
   });
+  const [isGenerating, setIsGenerating] = useState(false);
   const { loading, user } = useAuth();
 
   useEffect(() => {
@@ -104,13 +112,15 @@ export default function DashboardLayout({
   }
 
   return (
-    <SidebarProvider
-      style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
-    >
-      <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
-        {children}
-      </DashboardLayoutContent>
-    </SidebarProvider>
+    <GeneratingContext.Provider value={{ isGenerating, setIsGenerating }}>
+      <SidebarProvider
+        style={{ "--sidebar-width": `${sidebarWidth}px` } as CSSProperties}
+      >
+        <DashboardLayoutContent setSidebarWidth={setSidebarWidth}>
+          {children}
+        </DashboardLayoutContent>
+      </SidebarProvider>
+    </GeneratingContext.Provider>
   );
 }
 
@@ -128,6 +138,20 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
   const sidebarRef = useRef<HTMLDivElement>(null);
   const activeMenuItem = menuItems.find(item => item.path === location);
   const isMobile = useIsMobile();
+  const { isGenerating } = useGenerating();
+
+  // 未讀歷史筆數：從 localStorage 取得上次查看歷史的時間，計算新筆數
+  const historyQuery = trpc.script.history.useQuery(
+    undefined,
+    { enabled: isMobile, staleTime: 30_000 }
+  );
+  const [lastSeenAt] = useState<number>(() => {
+    const v = localStorage.getItem("history-last-seen");
+    return v ? parseInt(v, 10) : 0;
+  });
+  const unreadCount = (historyQuery.data ?? []).filter(
+    (s: { createdAt: string | number | Date }) => new Date(s.createdAt).getTime() > lastSeenAt
+  ).length;
 
   useEffect(() => {
     if (isCollapsed) setIsResizing(false);
@@ -285,25 +309,46 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             </DropdownMenu>
           </div>
         )}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto pb-16 md:pb-0">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto pb-16 md:pb-0" style={{ paddingBottom: 'calc(4rem + env(safe-area-inset-bottom, 0px))' }}>{children}</main>
 
         {/* 手機底部 Tab Bar */}
         {isMobile && (
-          <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center">
+          <nav
+            className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-start"
+            style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
+          >
             {menuItems.map((item) => {
               const isActive = location === item.path;
+              const isHome = item.path === "/";
+              const isHistory = item.path === "/history";
               return (
                 <button
                   key={item.path}
-                  onClick={() => setLocation(item.path)}
-                  className={`flex-1 flex flex-col items-center justify-center gap-1 h-full transition-colors ${
+                  onClick={() => {
+                    if (isHistory) {
+                      localStorage.setItem("history-last-seen", Date.now().toString());
+                    }
+                    setLocation(item.path);
+                  }}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 h-16 transition-colors relative ${
                     isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
                   }`}
                 >
-                  <item.icon className={`h-5 w-5 ${ isActive ? "text-primary" : "text-muted-foreground" }`} />
+                  {/* 快速出稿：生成中顯示 loading 圖示 */}
+                  {isHome && isGenerating ? (
+                    <Loader2 className="h-5 w-5 text-primary animate-spin" />
+                  ) : (
+                    <item.icon className={`h-5 w-5 ${ isActive ? "text-primary" : "text-muted-foreground" }`} />
+                  )}
                   <span className={`text-[10px] font-medium leading-none ${ isActive ? "text-primary" : "" }`}>
                     {item.label.replace("3-3-3 ", "")}
                   </span>
+                  {/* 歷史未讀 Badge */}
+                  {isHistory && unreadCount > 0 && !isActive && (
+                    <span className="absolute top-2.5 right-[calc(50%-14px)] min-w-[16px] h-4 rounded-full bg-primary text-[9px] font-bold text-primary-foreground flex items-center justify-center px-1 leading-none">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                   {isActive && (
                     <span className="absolute bottom-0 w-6 h-0.5 rounded-full bg-primary" />
                   )}

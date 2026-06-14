@@ -17,10 +17,12 @@ import {
 } from "@shared/scriptTypes";
 import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { useGenerating } from "@/components/DashboardLayout";
 
 type PresetKey = "premium" | "standard" | "lite";
 
 export default function Home() {
+  const { setIsGenerating } = useGenerating();
   // Form state
   const [form, setForm] = useState<PromptInput>({
     industry: "",
@@ -65,13 +67,16 @@ export default function Home() {
   });
 
   const generateMutation = trpc.script.generateDual.useMutation({
+    onMutate: () => { setIsGenerating(true); },
     onSuccess: (data: { finalOutput: string; gptOutput: string; historyId: number | null }) => {
+      setIsGenerating(false);
       setOutput(data.finalOutput);
       setNotionSaved(false);
       setNotionUrl(null);
       toast.success("腳本生成完成！");
     },
     onError: (err: { message: string }) => {
+      setIsGenerating(false);
       toast.error(`生成失敗：${err.message}`);
     },
   });

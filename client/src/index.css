@@ -183,3 +183,11 @@ button:active:not(:disabled) {
   white-space: pre-wrap;
   word-break: break-word;
 }
+
+/* Safe Area Inset — iPhone notch / home indicator support */
+.pb-safe {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+.h-tab-bar {
+  height: calc(4rem + env(safe-area-inset-bottom, 0px));
+}
