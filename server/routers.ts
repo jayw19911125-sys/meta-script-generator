@@ -4,6 +4,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
 import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { scriptRouter, matrixRouter } from "./routers/script";
+import { notionRouter } from "./routers/notion";
 import { getDb } from "./db";
 import { users } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -20,6 +21,7 @@ export const appRouter = router({
   }),
   script: scriptRouter,
   matrix: matrixRouter,
+  notion: notionRouter,
   admin: router({
     /** 列出所有用戶（只有 admin 可用） */
     listUsers: adminProcedure.query(async () => {

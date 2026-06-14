@@ -18,6 +18,7 @@ import {
 import {
   Grid3X3, RefreshCw, Copy, Download, Loader2, ChevronRight,
   Star, CheckCircle2, AlertCircle, Sparkles, Trophy, ChevronDown, ChevronUp, Settings2,
+  BookmarkPlus, ExternalLink,
 } from "lucide-react";
 
 type Step = "form" | "hooks" | "bodies" | "ctas" | "recommendations";
@@ -78,6 +79,22 @@ export default function MatrixPage() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [selectedRec, setSelectedRec] = useState<number>(0);
   const [rerunningId, setRerunningId] = useState<string | null>(null);
+  const [notionSavedRec, setNotionSavedRec] = useState<number | null>(null);
+  const [notionUrlRec, setNotionUrlRec] = useState<string | null>(null);
+
+  const saveToNotionMutation = trpc.notion.saveMatrixScript.useMutation({
+    onSuccess: (data) => {
+      setNotionSavedRec(selectedRec);
+      setNotionUrlRec(data.notionUrl ?? null);
+      toast.success("已存入 Notion 腳本庫！", {
+        action: data.notionUrl ? {
+          label: "開啟",
+          onClick: () => window.open(data.notionUrl!, "_blank"),
+        } : undefined,
+      });
+    },
+    onError: (err: { message: string }) => toast.error(`存入 Notion 失敗：${err.message}`),
+  });
 
   // tRPC mutations
   const hooksMutation = trpc.matrix.generateHooks.useMutation({
@@ -590,23 +607,73 @@ export default function MatrixPage() {
                     <Sparkles className="w-4 h-4 text-primary" />
                     快速出稿 — 第 {matrix.recommendations[selectedRec]?.rank} 名組合
                   </CardTitle>
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={async () => {
-                      const rec = matrix.recommendations[selectedRec];
-                      if (!rec) return;
-                      const h = matrix.hooks[rec.hookIndex - 1];
-                      const b = matrix.bodies[rec.bodyIndex - 1];
-                      const c = matrix.ctas[rec.ctaIndex - 1];
-                      const text = `【Hook】\n${h?.text}\n\n【Body】\n${b?.text}\n\n【CTA】\n${c?.text}`;
-                      await navigator.clipboard.writeText(text);
-                      toast.success("已複製腳本");
-                    }}
-                    className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                  >
-                    <Copy className="w-3.5 h-3.5 mr-1" />複製
-                  </Button>
+                  <div className="flex items-center gap-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={async () => {
+                        const rec = matrix.recommendations[selectedRec];
+                        if (!rec) return;
+                        const h = matrix.hooks[rec.hookIndex - 1];
+                        const b = matrix.bodies[rec.bodyIndex - 1];
+                        const c = matrix.ctas[rec.ctaIndex - 1];
+                        const text = `【Hook】\n${h?.text}\n\n【Body】\n${b?.text}\n\n【CTA】\n${c?.text}`;
+                        await navigator.clipboard.writeText(text);
+                        toast.success("已複製腳本");
+                      }}
+                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                    >
+                      <Copy className="w-3.5 h-3.5 mr-1" />複製
+                    </Button>
+                    <div className="h-4 w-px bg-border/50" />
+                    {notionSavedRec === selectedRec ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => notionUrlRec && window.open(notionUrlRec, "_blank")}
+                        className="h-7 px-2 text-xs text-emerald-500 hover:text-emerald-400"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        已存入 Notion
+                        {notionUrlRec && <ExternalLink className="w-3 h-3 ml-1" />}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={saveToNotionMutation.isPending}
+                        onClick={() => {
+                          const rec = matrix.recommendations[selectedRec];
+                          if (!rec) return;
+                          const h = matrix.hooks[rec.hookIndex - 1];
+                          const b = matrix.bodies[rec.bodyIndex - 1];
+                          const c = matrix.ctas[rec.ctaIndex - 1];
+                          if (!h || !b || !c) return;
+                          const engineLabel = `${engineConfig.scatterVendor.toUpperCase()}(${engineConfig.scatterModel}) → ${engineConfig.integrateVendor.toUpperCase()}(${engineConfig.integrateModel})`;
+                          saveToNotionMutation.mutate({
+                            productName: form.productName,
+                            funnel: form.funnel,
+                            duration: form.duration,
+                            platform: "多平台",
+                            industry: form.industry,
+                            rankLabel: `推薦組合 #${rec.rank}`,
+                            score: rec.score,
+                            checklistNotes: rec.checklistNotes,
+                            hook: { text: h.text, shotDirection: h.shotDirection, soundEffect: h.soundEffect, performanceNote: h.performanceNote, notes: notes[h.id] },
+                            body: { text: b.text, shotDirection: b.shotDirection, soundEffect: b.soundEffect, performanceNote: b.performanceNote, notes: notes[b.id] },
+                            cta:  { text: c.text, shotDirection: c.shotDirection, soundEffect: c.soundEffect, performanceNote: c.performanceNote, notes: notes[c.id] },
+                            engineConfig: engineLabel,
+                          });
+                        }}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {saveToNotionMutation.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          : <BookmarkPlus className="w-3.5 h-3.5 mr-1" />}
+                        {saveToNotionMutation.isPending ? "存入中..." : "存入 Notion"}
+                      </Button>
+                    )}
+                  </div>
                 </div>
               </CardHeader>
               <Separator className="bg-border/50" />

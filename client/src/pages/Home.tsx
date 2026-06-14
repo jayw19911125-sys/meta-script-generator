@@ -15,7 +15,7 @@ import {
   GPT_MODELS, CLAUDE_MODELS,
   type EngineConfig, type PromptInput, type EngineVendor,
 } from "@shared/scriptTypes";
-import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles } from "lucide-react";
+import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink } from "lucide-react";
 
 type PresetKey = "premium" | "standard" | "lite";
 
@@ -39,10 +39,30 @@ export default function Home() {
   // Output state
   const [output, setOutput] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [notionUrl, setNotionUrl] = useState<string | null>(null);
+  const [notionSaved, setNotionSaved] = useState(false);
+
+  const saveToNotionMutation = trpc.notion.saveQuickScript.useMutation({
+    onSuccess: (data) => {
+      setNotionSaved(true);
+      setNotionUrl(data.notionUrl ?? null);
+      toast.success("已存入 Notion 腳本庫！", {
+        action: data.notionUrl ? {
+          label: "開啟",
+          onClick: () => window.open(data.notionUrl!, "_blank"),
+        } : undefined,
+      });
+    },
+    onError: (err) => {
+      toast.error(`存入 Notion 失敗：${err.message}`);
+    },
+  });
 
   const generateMutation = trpc.script.generateDual.useMutation({
     onSuccess: (data: { finalOutput: string; gptOutput: string; historyId: number | null }) => {
       setOutput(data.finalOutput);
+      setNotionSaved(false);
+      setNotionUrl(null);
       toast.success("腳本生成完成！");
     },
     onError: (err: { message: string }) => {
@@ -327,7 +347,7 @@ export default function Home() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-foreground">生成結果</CardTitle>
                 {output && (
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -355,6 +375,45 @@ export default function Home() {
                       <Download className="w-3.5 h-3.5 mr-1" />
                       TXT
                     </Button>
+                    {/* Notion 存入按鈕 */}
+                    <div className="h-4 w-px bg-border/50" />
+                    {notionSaved ? (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => notionUrl && window.open(notionUrl, "_blank")}
+                        className="h-7 px-2 text-xs text-emerald-500 hover:text-emerald-400"
+                      >
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        已存入 Notion
+                        {notionUrl && <ExternalLink className="w-3 h-3 ml-1" />}
+                      </Button>
+                    ) : (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        disabled={saveToNotionMutation.isPending}
+                        onClick={() => {
+                          if (!output) return;
+                          const engineLabel = `${engineConfig.scatterVendor.toUpperCase()}(${engineConfig.scatterModel}) → ${engineConfig.integrateVendor.toUpperCase()}(${engineConfig.integrateModel})`;
+                          saveToNotionMutation.mutate({
+                            productName: form.productName,
+                            funnel: form.funnel,
+                            duration: form.duration,
+                            platform: "多平台",
+                            industry: form.industry,
+                            scriptContent: output,
+                            engineConfig: engineLabel,
+                          });
+                        }}
+                        className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                      >
+                        {saveToNotionMutation.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
+                          : <BookmarkPlus className="w-3.5 h-3.5 mr-1" />}
+                        {saveToNotionMutation.isPending ? "存入中..." : "存入 Notion"}
+                      </Button>
+                    )}
                   </div>
                 )}
               </div>

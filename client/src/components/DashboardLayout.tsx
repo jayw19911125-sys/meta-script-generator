@@ -62,27 +62,35 @@ export default function DashboardLayout({
   if (!user) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="flex flex-col items-center gap-8 p-8 max-w-md w-full">
-          <div className="flex flex-col items-center gap-4">
-            <div className="flex items-center gap-2 mb-2">
-              <div className="w-10 h-10 rounded-xl brand-gradient flex items-center justify-center">
-                <Sparkles className="w-5 h-5 text-white" />
-              </div>
-              <span className="text-xl font-bold text-gradient">Script Gen V2</span>
-            </div>
-            <h1 className="text-2xl font-semibold tracking-tight text-center text-foreground">
-              登入以繼續
+        <div className="flex flex-col items-center gap-8 p-8 max-w-sm w-full text-center">
+          {/* Logo */}
+          <div className="w-20 h-20 rounded-2xl brand-gradient flex items-center justify-center shadow-lg shadow-primary/30">
+            <Sparkles className="w-10 h-10 text-white" />
+          </div>
+
+          {/* Title */}
+          <div className="space-y-2">
+            <h1 className="text-3xl font-extrabold tracking-tight text-foreground">
+              META 腳本生成器
             </h1>
-            <p className="text-sm text-muted-foreground text-center max-w-sm">
-              使用 Manus 帳號登入，開始生成 Meta 導購型短影音腳本。
+            <p className="text-sm text-muted-foreground">
+              好創整合行銷｜雙引擎 AI v3.0
             </p>
           </div>
+
+          {/* Description */}
+          <p className="text-sm text-muted-foreground/80 leading-relaxed max-w-xs">
+            登入後即可使用雙引擎生成，引擎、子模型均可自由選擇。
+            所有運算與知識底層皆在後端完成，無需自備任何 API Key。
+          </p>
+
+          {/* Login Button */}
           <Button
             onClick={() => { window.location.href = getLoginUrl(); }}
             size="lg"
-            className="w-full brand-gradient text-white font-semibold shadow-lg hover:opacity-90 transition-opacity"
+            className="w-full brand-gradient text-white font-semibold shadow-lg hover:opacity-90 transition-opacity h-12 text-base"
           >
-            登入 Manus
+            →  登入開始使用
           </Button>
         </div>
       </div>
