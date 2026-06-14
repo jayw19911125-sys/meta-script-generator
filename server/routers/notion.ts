@@ -319,6 +319,10 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
         hasMethodology: cacheStatus.hasMethodology,
         frameworkCount: cacheStatus.funnelCount,
         frameworks,
+        lastAttemptAt: cacheStatus.lastAttemptAt,
+        failedPages: cacheStatus.failedPages,
+        usedFallback: cacheStatus.usedFallback,
+        partialSuccess: cacheStatus.partialSuccess,
       };
     }),
 
@@ -328,14 +332,21 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
       try {
         const cache = await syncNotionKnowledge(true);
         const count = Object.keys(cache.funnelFrameworks).length;
+        const afterStatus = getCacheStatus();
         return {
           success: true,
-          message: `已同步 ${count} 個漏斗框架，來源：${cache.source ?? "api"}`
+          message: `已同步 ${count} 個漏斗框架，來源：${cache.source ?? "api"}`,
+          failedPages: afterStatus.failedPages,
+          usedFallback: afterStatus.usedFallback,
+          partialSuccess: afterStatus.partialSuccess,
         };
       } catch (e) {
         return {
           success: false,
-          message: `同步失敗：${e instanceof Error ? e.message : "未知錯誤"}`
+          message: `同步失敗：${e instanceof Error ? e.message : "未知錯誤"}`,
+          failedPages: [] as Array<{ pageId: string; label: string; error: string }>,
+          usedFallback: false,
+          partialSuccess: false,
         };
       }
     }),

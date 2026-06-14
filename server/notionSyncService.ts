@@ -74,8 +74,17 @@ export interface NotionKnowledgeCache {
 // ========== 記憶體快取 ==========
 let memoryCache: NotionKnowledgeCache | null = null;
 
+// ========== 同步錯誤記錄 ==========
+interface SyncAttemptRecord {
+  attemptAt: string;
+  failedPages: Array<{ pageId: string; label: string; error: string }>;
+  usedFallback: boolean;
+  partialSuccess: boolean; // 部分頁面成功
+}
+let lastSyncAttempt: SyncAttemptRecord | null = null;
+
 // ========== 從 Notion 拉取單一頁面 ==========
-function fetchNotionPage(pageId: string): string {
+function fetchNotionPage(pageId: string): { text: string; error: string | null } {
   try {
     const tmpFile = path.join("/tmp", `notion_fetch_${Date.now()}.json`);
     fs.writeFileSync(tmpFile, JSON.stringify({ id: pageId }), "utf-8");
@@ -85,12 +94,16 @@ function fetchNotionPage(pageId: string): string {
     );
     fs.unlinkSync(tmpFile);
     const match = result.match(/Tool execution result:\n([\s\S]+)/);
-    if (!match) return "";
+    if (!match) return { text: "", error: "回應格式異常，無法解析 Tool execution result" };
     const parsed = JSON.parse(match[1].trim());
-    return parsed.text || "";
+    if (!parsed.text) return { text: "", error: "Notion 回傳內容為空（頁面可能未授權或不存在）" };
+    return { text: parsed.text, error: null };
   } catch (e) {
-    console.error(`[NotionSync] 拉取頁面 ${pageId} 失敗:`, e);
-    return "";
+    const msg = e instanceof Error ? e.message : String(e);
+    // 提取最關鍵的錯誤訊息（去掉 stack trace）
+    const shortMsg = msg.split("\n")[0].slice(0, 120);
+    console.error(`[NotionSync] 拉取頁面 ${pageId} 失敗: ${shortMsg}`);
+    return { text: "", error: shortMsg };
   }
 }
 
@@ -230,6 +243,9 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
 
   console.log("[NotionSync v2.0] 開始從 Notion 同步知識框架...");
 
+  const attemptAt = new Date().toISOString();
+  const failedPages: Array<{ pageId: string; label: string; error: string }> = [];
+
   // ===== 同步 L 系列 =====
   const funnelMap: Record<string, "cold" | "warm" | "hot"> = {
     L01: "cold", L02: "warm", L03: "hot",
@@ -241,42 +257,58 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
     L03: NOTION_PAGE_IDS.L03,
   })) {
     console.log(`[NotionSync] 拉取 ${id}...`);
-    const text = fetchNotionPage(pageId);
+    const { text, error } = fetchNotionPage(pageId);
     if (text) {
       funnelFrameworks[id] = parseLFramework(id, text, funnelMap[id]);
       console.log(`[NotionSync] ✅ ${id} 同步完成`);
     } else {
+      const errMsg = error ?? "未知錯誤";
       console.warn(`[NotionSync] ⚠️ ${id} 拉取失敗，跳過`);
+      failedPages.push({ pageId, label: `${id} 漏斗框架`, error: errMsg });
     }
   }
 
   // ===== 同步 A3 Hook 數據 =====
   let hookKnowledge: HookKnowledge | null = null;
   console.log("[NotionSync] 拉取 A3 Hook 數據...");
-  const hookText = fetchNotionPage(NOTION_PAGE_IDS.A3_HOOK_DATA);
+  const { text: hookText, error: hookError } = fetchNotionPage(NOTION_PAGE_IDS.A3_HOOK_DATA);
   if (hookText) {
     hookKnowledge = parseHookKnowledge(hookText);
     console.log(`[NotionSync] ✅ A3 Hook 數據同步完成（${hookKnowledge.industryBestHooks.length} 筆產業配對）`);
   } else {
+    const errMsg = hookError ?? "未知錯誤";
     console.warn("[NotionSync] ⚠️ A3 Hook 數據拉取失敗");
+    failedPages.push({ pageId: NOTION_PAGE_IDS.A3_HOOK_DATA, label: "A3 Hook 數據庫", error: errMsg });
   }
 
   // ===== 同步 H 系列方法論 =====
   let methodologyKnowledge: MethodologyKnowledge | null = null;
   console.log("[NotionSync] 拉取 H 系列方法論...");
-  const methodologyText = fetchNotionPage(NOTION_PAGE_IDS.H_METHODOLOGY);
+  const { text: methodologyText, error: methodologyError } = fetchNotionPage(NOTION_PAGE_IDS.H_METHODOLOGY);
   if (methodologyText) {
     methodologyKnowledge = parseMethodologyKnowledge(methodologyText);
     console.log("[NotionSync] ✅ H 系列方法論同步完成");
   } else {
+    const errMsg = methodologyError ?? "未知錯誤";
     console.warn("[NotionSync] ⚠️ H 系列方法論拉取失敗");
+    failedPages.push({ pageId: NOTION_PAGE_IDS.H_METHODOLOGY, label: "H 系列方法論知識庫", error: errMsg });
   }
 
   // 若 L 系列全部拉取失敗，使用內嵌快照作為 fallback
   const hasFunnels = Object.keys(funnelFrameworks).length > 0;
-  if (!hasFunnels) {
+  const usedFallback = !hasFunnels;
+  if (usedFallback) {
     console.warn("[NotionSync] ⚠️ L 系列全部失敗，使用內嵌知識庫 fallback");
   }
+
+  // 記錄本次同步結果
+  lastSyncAttempt = {
+    attemptAt,
+    failedPages,
+    usedFallback,
+    partialSuccess: hasFunnels && failedPages.length > 0,
+  };
+
   const cache: NotionKnowledgeCache = {
     lastSyncAt: new Date().toISOString(),
     source: hasFunnels ? "api" : "embedded",
@@ -290,7 +322,7 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
   }
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8");
   memoryCache = cache;
-  console.log("[NotionSync v2.0] 同步完成，已更新快取");
+  console.log(`[NotionSync v2.0] 同步完成，已更新快取（失敗 ${failedPages.length} 頁）`);
   return cache;
 }
 
@@ -354,9 +386,20 @@ export function getMethodologySummary(
 }
 
 // ========== 快取狀態 ==========
-export function getCacheStatus(): { lastSyncAt: string | null; isStale: boolean; source: string; hasHookData: boolean; hasMethodology: boolean; funnelCount: number } {
+export function getCacheStatus(): {
+  lastSyncAt: string | null;
+  isStale: boolean;
+  source: string;
+  hasHookData: boolean;
+  hasMethodology: boolean;
+  funnelCount: number;
+  lastAttemptAt: string | null;
+  failedPages: Array<{ pageId: string; label: string; error: string }>;
+  usedFallback: boolean;
+  partialSuccess: boolean;
+} {
+  const attempt = lastSyncAttempt;
   if (!memoryCache) {
-    // 尚未同步，回傳內嵌快照狀態
     return {
       lastSyncAt: EMBEDDED_NOTION_KNOWLEDGE.lastSyncAt,
       isStale: true,
@@ -364,6 +407,10 @@ export function getCacheStatus(): { lastSyncAt: string | null; isStale: boolean;
       hasHookData: false,
       hasMethodology: false,
       funnelCount: Object.keys(EMBEDDED_NOTION_KNOWLEDGE.funnelFrameworks).length,
+      lastAttemptAt: attempt?.attemptAt ?? null,
+      failedPages: attempt?.failedPages ?? [],
+      usedFallback: attempt?.usedFallback ?? false,
+      partialSuccess: attempt?.partialSuccess ?? false,
     };
   }
   const age = Date.now() - new Date(memoryCache.lastSyncAt).getTime();
@@ -374,6 +421,10 @@ export function getCacheStatus(): { lastSyncAt: string | null; isStale: boolean;
     hasHookData: !!memoryCache.hookKnowledge,
     hasMethodology: !!memoryCache.methodologyKnowledge,
     funnelCount: Object.keys(memoryCache.funnelFrameworks).length,
+    lastAttemptAt: attempt?.attemptAt ?? null,
+    failedPages: attempt?.failedPages ?? [],
+    usedFallback: attempt?.usedFallback ?? false,
+    partialSuccess: attempt?.partialSuccess ?? false,
   };
 }
 

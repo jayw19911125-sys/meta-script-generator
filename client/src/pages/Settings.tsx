@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +13,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import {
   AlertCircle,
+  AlertTriangle,
   CheckCircle2,
   Clock,
   Database,
@@ -22,6 +24,7 @@ import {
   Shield,
   Wifi,
   WifiOff,
+  XCircle,
 } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -63,7 +66,14 @@ export default function Settings() {
     onSuccess: (result) => {
       setIsSyncing(false);
       if (result.success) {
-        toast.success("同步成功", { description: result.message });
+        const failCount = result.failedPages?.length ?? 0;
+        if (failCount > 0) {
+          toast.warning("部分同步完成", {
+            description: `${result.message}，但有 ${failCount} 個頁面失敗`,
+          });
+        } else {
+          toast.success("同步完成", { description: result.message });
+        }
       } else {
         toast.error("同步失敗", { description: result.message });
       }
@@ -281,6 +291,58 @@ export default function Settings() {
                   ))}
                 </div>
               </div>
+            )}
+
+            {/* 同步失敗詳細提示 */}
+            {status?.failedPages && status.failedPages.length > 0 && (
+              <Alert variant="destructive" className="border-red-500/40 bg-red-500/10">
+                <XCircle className="h-4 w-4" />
+                <AlertTitle className="text-red-400">
+                  {status.failedPages.length} 個頁面同步失敗
+                </AlertTitle>
+                <AlertDescription className="space-y-2 mt-2">
+                  {status.failedPages.map((page) => (
+                    <div key={page.pageId} className="rounded border border-red-500/20 bg-red-500/5 px-3 py-2">
+                      <div className="flex items-center gap-1.5 mb-1">
+                        <span className="text-xs font-semibold text-red-300">{page.label}</span>
+                      </div>
+                      <p className="text-xs text-red-400/80 font-mono break-all">{page.error}</p>
+                    </div>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleSync}
+                    disabled={!isAdmin || isSyncing}
+                    className="mt-2 gap-2 border-red-500/30 text-red-300 hover:bg-red-500/10"
+                  >
+                    <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
+                    {isSyncing ? "重試中..." : "重試同步"}
+                  </Button>
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* usedFallback 降級提示 */}
+            {status?.usedFallback && !status?.failedPages?.length && (
+              <Alert className="border-amber-500/40 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <AlertTitle className="text-amber-400">使用內嵌知識庫（降級模式）</AlertTitle>
+                <AlertDescription className="text-amber-400/80 text-xs">
+                  Notion API 拉取全部失敗，目前使用內嵌知識庫作為備用。請檢查 NOTION_API_TOKEN 設定與頁面授權後重試同步。
+                </AlertDescription>
+              </Alert>
+            )}
+
+            {/* partialSuccess 提示 */}
+            {status?.partialSuccess && (
+              <Alert className="border-amber-500/40 bg-amber-500/10">
+                <AlertTriangle className="h-4 w-4 text-amber-400" />
+                <AlertTitle className="text-amber-400">部分同步成功</AlertTitle>
+                <AlertDescription className="text-amber-400/80 text-xs">
+                  部分頁面已成功拉取，但仍有頁面失敗（詳見上方錯誤訊息）。建議檢查失敗頁面的授權設定。
+                </AlertDescription>
+              </Alert>
             )}
 
             <Separator className="bg-border/30" />
