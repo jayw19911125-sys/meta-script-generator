@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import { PENDING_APPROVAL_ERR_MSG } from "@shared/const";
-import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield } from "lucide-react";
+import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield, ShieldCheck } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -215,6 +215,12 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                {user?.role === "admin" && (
+                  <DropdownMenuItem onClick={() => setLocation("/admin")} className="cursor-pointer">
+                    <ShieldCheck className="mr-2 h-4 w-4 text-amber-400" />
+                    <span>管理後台</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
                   <LogOut className="mr-2 h-4 w-4" />
                   <span>登出</span>

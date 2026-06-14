@@ -4,6 +4,7 @@ import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
 import MatrixPage from "./pages/MatrixPage";
 import HistoryPage from "./pages/HistoryPage";
+import AdminPage from "./pages/AdminPage";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
           <Route path="/" component={Home} />
           <Route path="/matrix" component={MatrixPage} />
           <Route path="/history" component={HistoryPage} />
+          <Route path="/admin" component={AdminPage} />
           <Route component={NotFound} />
         </Switch>
       </DashboardLayout>
