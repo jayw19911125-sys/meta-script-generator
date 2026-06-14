@@ -15,7 +15,8 @@ import {
   GPT_MODELS, CLAUDE_MODELS,
   type EngineConfig, type PromptInput, type EngineVendor,
 } from "@shared/scriptTypes";
-import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink } from "lucide-react";
+import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye } from "lucide-react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 
 type PresetKey = "premium" | "standard" | "lite";
 
@@ -41,6 +42,11 @@ export default function Home() {
   const [copied, setCopied] = useState(false);
   const [notionUrl, setNotionUrl] = useState<string | null>(null);
   const [notionSaved, setNotionSaved] = useState(false);
+  // Notion 預覽視窗 state
+  const [notionPreviewOpen, setNotionPreviewOpen] = useState(false);
+  const [notionPreviewTitle, setNotionPreviewTitle] = useState("");
+  const [notionPreviewContent, setNotionPreviewContent] = useState("");
+  const [notionPreviewNote, setNotionPreviewNote] = useState("");
 
   const saveToNotionMutation = trpc.notion.saveQuickScript.useMutation({
     onSuccess: (data) => {
@@ -382,7 +388,7 @@ export default function Home() {
                         variant="ghost"
                         size="sm"
                         onClick={() => notionUrl && window.open(notionUrl, "_blank")}
-                        className="h-7 px-2 text-xs text-emerald-500 hover:text-emerald-400"
+                        className="h-7 px-2 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
                         已存入 Notion
@@ -395,23 +401,18 @@ export default function Home() {
                         disabled={saveToNotionMutation.isPending}
                         onClick={() => {
                           if (!output) return;
-                          const engineLabel = `${engineConfig.scatterVendor.toUpperCase()}(${engineConfig.scatterModel}) → ${engineConfig.integrateVendor.toUpperCase()}(${engineConfig.integrateModel})`;
-                          saveToNotionMutation.mutate({
-                            productName: form.productName,
-                            funnel: form.funnel,
-                            duration: form.duration,
-                            platform: "多平台",
-                            industry: form.industry,
-                            scriptContent: output,
-                            engineConfig: engineLabel,
-                          });
+                          const today = new Date().toLocaleDateString("zh-TW");
+                          setNotionPreviewTitle(`[META快速出稿] ${form.productName} · ${form.funnel} · ${today}`);
+                          setNotionPreviewContent(output);
+                          setNotionPreviewNote("");
+                          setNotionPreviewOpen(true);
                         }}
                         className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
                       >
                         {saveToNotionMutation.isPending
                           ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
-                          : <BookmarkPlus className="w-3.5 h-3.5 mr-1" />}
-                        {saveToNotionMutation.isPending ? "存入中..." : "存入 Notion"}
+                          : <Eye className="w-3.5 h-3.5 mr-1" />}
+                        {saveToNotionMutation.isPending ? "存入中..." : "預覽存入 Notion"}
                       </Button>
                     )}
                   </div>
@@ -450,6 +451,90 @@ export default function Home() {
           </Card>
         </div>
       </div>
+
+      {/* Notion 預覽存入視窗 */}
+      <Dialog open={notionPreviewOpen} onOpenChange={setNotionPreviewOpen}>
+        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-[oklch(0.15_0.02_240)] border-border/40">
+          <DialogHeader>
+            <DialogTitle className="text-base font-semibold flex items-center gap-2">
+              <Eye className="w-4 h-4 text-primary" />
+              預覽存入 Notion
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-1">確認內容後再存入，可在此微調標題與備註</p>
+          </DialogHeader>
+
+          <div className="flex flex-col gap-3 overflow-y-auto flex-1 pr-1">
+            {/* 腳本標題 */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">腳本標題</Label>
+              <Input
+                value={notionPreviewTitle}
+                onChange={(e) => setNotionPreviewTitle(e.target.value)}
+                className="text-sm bg-muted/30 border-border/40 h-8"
+                placeholder="腳本標題"
+              />
+            </div>
+
+            {/* 腳本內容 */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">腳本內容（可微調）</Label>
+              <Textarea
+                value={notionPreviewContent}
+                onChange={(e) => setNotionPreviewContent(e.target.value)}
+                className="text-xs bg-muted/30 border-border/40 font-mono leading-relaxed resize-none"
+                rows={14}
+              />
+            </div>
+
+            {/* 備註 */}
+            <div className="flex flex-col gap-1.5">
+              <Label className="text-xs text-muted-foreground">備註（選填）</Label>
+              <Input
+                value={notionPreviewNote}
+                onChange={(e) => setNotionPreviewNote(e.target.value)}
+                className="text-sm bg-muted/30 border-border/40 h-8"
+                placeholder="例：第一次測試、客戶 A 用"
+              />
+            </div>
+          </div>
+
+          <DialogFooter className="flex gap-2 pt-2 border-t border-border/30">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setNotionPreviewOpen(false)}
+              className="text-muted-foreground"
+            >
+              取消
+            </Button>
+            <Button
+              size="sm"
+              disabled={saveToNotionMutation.isPending || !notionPreviewTitle.trim()}
+              onClick={() => {
+                const engineLabel = `${engineConfig.scatterVendor.toUpperCase()}(${engineConfig.scatterModel}) → ${engineConfig.integrateVendor.toUpperCase()}(${engineConfig.integrateModel})`;
+                saveToNotionMutation.mutate({
+                  productName: form.productName,
+                  funnel: form.funnel,
+                  duration: form.duration,
+                  platform: "多平台",
+                  industry: form.industry,
+                  scriptContent: notionPreviewContent,
+                  engineConfig: engineLabel,
+                  scriptTitle: notionPreviewTitle,
+                  notes: notionPreviewNote || undefined,
+                }, {
+                  onSuccess: () => setNotionPreviewOpen(false),
+                });
+              }}
+              className="brand-gradient text-black font-medium"
+            >
+              {saveToNotionMutation.isPending
+                ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />存入中...</>
+                : <><BookmarkPlus className="w-3.5 h-3.5 mr-1.5" />確認存入 Notion</>}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

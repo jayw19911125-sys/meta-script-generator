@@ -84,16 +84,19 @@ export const notionRouter = router({
       scriptContent:  z.string().min(1),
       // 引擎資訊（存備註）
       engineConfig:   z.string().optional(),
+      // 預覽視窗可自訂標題與備註
+      scriptTitle:    z.string().optional(),
+      notes:          z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const {
         productName, funnel, duration, platform, industry,
-        scriptContent, engineConfig,
+        scriptContent, engineConfig, notes,
       } = input;
 
       const generatedBy = ctx.user?.name ?? "系統";
       const today = new Date().toLocaleDateString("zh-TW");
-      const scriptTitle = `[META快速出稿] ${productName} · ${funnel} · ${today}`;
+      const scriptTitle = input.scriptTitle?.trim() || `[META快速出稿] ${productName} · ${funnel} · ${today}`;
 
       // 頁面 body：完整腳本文字 + 元資訊
       const pageContent = `## 📋 生成資訊
@@ -128,7 +131,10 @@ ${scriptContent}
           平台:         platform,
           成效標籤:     "待評估",
           來源工具:     "Meta腳本生成器",
-          備註:         engineConfig ? `引擎：${engineConfig}` : "",
+          備註:         [
+            engineConfig ? `引擎：${engineConfig}` : null,
+            notes || null,
+          ].filter(Boolean).join(" ｜ "),
           建立者:     generatedBy,
           "date:生成時間:start": nowISO,
           "date:生成時間:is_datetime": 1,
@@ -179,18 +185,21 @@ ${scriptContent}
         notes:           z.string().optional(),
       }),
       engineConfig:   z.string().optional(),
+      // 預覽視窗可自訂標題與備註
+      scriptTitle:    z.string().optional(),
+      notes:          z.string().optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const {
         productName, funnel, duration, platform, industry,
         rankLabel, score, checklistNotes,
-        hook, body, cta, engineConfig,
+        hook, body, cta, engineConfig, notes,
       } = input;
 
       const generatedBy = ctx.user?.name ?? "系統";
       const today = new Date().toLocaleDateString("zh-TW");
       const label = rankLabel ? ` · ${rankLabel}` : "";
-      const scriptTitle = `[META矩陣] ${productName} · ${funnel}${label} · ${today}`;
+      const scriptTitle = input.scriptTitle?.trim() || `[META矩陣] ${productName} · ${funnel}${label} · ${today}`;
 
       const pageContent = `## 📋 生成資訊
 
@@ -275,7 +284,10 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
           平台:         platform,
           成效標籤:     "待評估",
           來源工具:     "Meta腳本生成器",
-          備註:         engineConfig ? `引擎：${engineConfig}` : "",
+          備註:         [
+            engineConfig ? `引擎：${engineConfig}` : null,
+            notes || null,
+          ].filter(Boolean).join(" ｜ "),
           建立者:     generatedBy,
           "date:生成時間:start": nowISO2,
           "date:生成時間:is_datetime": 1,
