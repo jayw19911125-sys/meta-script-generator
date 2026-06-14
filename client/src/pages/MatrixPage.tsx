@@ -12,11 +12,12 @@ import { Separator } from "@/components/ui/separator";
 import {
   INDUSTRIES, FUNNELS, DURATIONS, APPEARANCES, TONES,
   ENGINE_PRESETS, DEFAULT_ENGINE_CONFIG,
-  type EngineConfig, type PromptInput, type ScriptModule, type MatrixRecommendation,
+  GPT_MODELS, CLAUDE_MODELS,
+  type EngineConfig, type PromptInput, type ScriptModule, type MatrixRecommendation, type EngineVendor,
 } from "@shared/scriptTypes";
 import {
   Grid3X3, RefreshCw, Copy, Download, Loader2, ChevronRight,
-  Star, CheckCircle2, AlertCircle, Sparkles, Trophy,
+  Star, CheckCircle2, AlertCircle, Sparkles, Trophy, ChevronDown, ChevronUp, Settings2,
 } from "lucide-react";
 
 type Step = "form" | "hooks" | "bodies" | "ctas" | "recommendations";
@@ -66,7 +67,8 @@ export default function MatrixPage() {
     appearance: "person",
     tone: "friendly",
   });
-  const [engineConfig] = useState<EngineConfig>(DEFAULT_ENGINE_CONFIG);
+  const [engineConfig, setEngineConfig] = useState<EngineConfig>(DEFAULT_ENGINE_CONFIG);
+  const [showEngineConfig, setShowEngineConfig] = useState(false);
   const [matrix, setMatrix] = useState<MatrixState>({
     hooks: [],
     bodies: [],
@@ -388,6 +390,48 @@ export default function MatrixPage() {
                   </Select>
                 </div>
               </div>
+              {/* 引擎設定 */}
+              <div className="border border-border/40 rounded-lg overflow-hidden">
+                <button
+                  onClick={() => setShowEngineConfig(v => !v)}
+                  className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
+                >
+                  <div className="flex items-center gap-1.5">
+                    <Settings2 className="w-3.5 h-3.5" />
+                    <span>引擎設定</span>
+                    <span className="text-[10px] bg-muted/50 px-1.5 py-0.5 rounded">
+                      發散: {engineConfig.scatterModel.split("-").slice(0,2).join("-")} · 整合: {engineConfig.integrateModel.split("-").slice(0,2).join("-")}
+                    </span>
+                  </div>
+                  {showEngineConfig ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                </button>
+                {showEngineConfig && (
+                  <div className="px-3 pb-3 space-y-4 border-t border-border/30 pt-3">
+                    <MatrixEngineSlot
+                      label="發散引擎（Hook 生成）"
+                      vendor={engineConfig.scatterVendor}
+                      model={engineConfig.scatterModel}
+                      onVendorChange={(v) => {
+                        const defaultModel = v === "gpt" ? GPT_MODELS[1].value : CLAUDE_MODELS[2].value;
+                        setEngineConfig(c => ({ ...c, scatterVendor: v, scatterModel: defaultModel, preset: "custom" }));
+                      }}
+                      onModelChange={(m) => setEngineConfig(c => ({ ...c, scatterModel: m, preset: "custom" }))}
+                    />
+                    <Separator className="bg-border/30" />
+                    <MatrixEngineSlot
+                      label="整合引擎（Body + CTA + 評分）"
+                      vendor={engineConfig.integrateVendor}
+                      model={engineConfig.integrateModel}
+                      onVendorChange={(v) => {
+                        const defaultModel = v === "claude" ? CLAUDE_MODELS[2].value : GPT_MODELS[1].value;
+                        setEngineConfig(c => ({ ...c, integrateVendor: v, integrateModel: defaultModel, preset: "custom" }));
+                      }}
+                      onModelChange={(m) => setEngineConfig(c => ({ ...c, integrateModel: m, preset: "custom" }))}
+                    />
+                  </div>
+                )}
+              </div>
+
               <div className="pt-2">
                 <Button onClick={handleGenerateHooks} disabled={isAnyLoading}
                   className="w-full h-11 brand-gradient text-white font-semibold text-sm">
@@ -730,6 +774,85 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
         </Card>
         );
       })}
+    </div>
+  );
+}
+
+// ========== MatrixEngineSlot 組件：廠商 → 子模型兩層選擇 ==========
+
+interface MatrixEngineSlotProps {
+  label: string;
+  vendor: EngineVendor;
+  model: string;
+  onVendorChange: (v: EngineVendor) => void;
+  onModelChange: (m: string) => void;
+}
+
+function MatrixEngineSlot({ label, vendor, model, onVendorChange, onModelChange }: MatrixEngineSlotProps) {
+  const models = vendor === "gpt" ? GPT_MODELS : CLAUDE_MODELS;
+  const currentModel = models.find(m => m.value === model);
+
+  return (
+    <div className="space-y-2">
+      <p className="text-xs font-semibold text-foreground">{label}</p>
+
+      {/* 廠商切換 */}
+      <div className="flex gap-2">
+        {(["gpt", "claude"] as EngineVendor[]).map((v) => (
+          <button
+            key={v}
+            onClick={() => onVendorChange(v)}
+            className={[
+              "flex-1 h-7 rounded-md text-xs font-medium border transition-all",
+              vendor === v
+                ? "bg-primary/15 border-primary/50 text-primary"
+                : "bg-transparent border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground",
+            ].join(" ")}
+          >
+            {v === "gpt" ? "GPT" : "Claude"}
+          </button>
+        ))}
+      </div>
+
+      {/* 子模型選擇 */}
+      <div className="grid gap-1">
+        {models.map((m) => (
+          <button
+            key={m.value}
+            onClick={() => onModelChange(m.value)}
+            className={[
+              "flex items-center justify-between rounded px-2.5 py-1.5 text-left border transition-all",
+              model === m.value
+                ? "bg-primary/10 border-primary/40 text-foreground"
+                : "bg-transparent border-border/20 text-muted-foreground hover:border-border/50 hover:text-foreground",
+            ].join(" ")}
+          >
+            <div className="flex items-center gap-1.5">
+              <span className="text-xs font-medium">{m.label}</span>
+              <span className={[
+                "text-[10px] px-1 py-0.5 rounded",
+                m.tier === "頂配" ? "bg-amber-500/15 text-amber-400" :
+                m.tier === "標準" ? "bg-primary/15 text-primary" :
+                "bg-muted/50 text-muted-foreground",
+              ].join(" ")}>{m.tier}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="text-[10px] text-muted-foreground/60 hidden sm:block">{m.recommend}</span>
+              <span className={[
+                "text-[10px] font-medium",
+                (m.costHint === "極高" || m.costHint === "高") ? "text-red-400/80" :
+                m.costHint === "中" ? "text-yellow-400/80" : "text-green-400/80",
+              ].join(" ")}>費:{m.costHint}</span>
+            </div>
+          </button>
+        ))}
+      </div>
+
+      {currentModel && (
+        <p className="text-[10px] text-muted-foreground/50 pl-0.5">
+          已選：{currentModel.label}
+        </p>
+      )}
     </div>
   );
 }

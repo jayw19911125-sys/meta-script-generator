@@ -22,16 +22,18 @@ export type IntegrateEngine = "claude" | "gpt" | "both";
 
 /** GPT 系列可選模型 */
 export const GPT_MODELS = [
-  { value: "gpt-5",       label: "GPT-5",       tier: "頂配", costHint: "高" },
-  { value: "gpt-5-mini",  label: "GPT-5 Mini",  tier: "標準", costHint: "中" },
-  { value: "gpt-5-nano",  label: "GPT-5 Nano",  tier: "輕量", costHint: "低" },
+  { value: "gpt-5",       label: "GPT-5",       tier: "頂配", costHint: "高",   recommend: "最強創意發散、Hook 多樣性最佳" },
+  { value: "gpt-5-mini",  label: "GPT-5 Mini",  tier: "標準", costHint: "中",   recommend: "日常生成首選，速度與品質平衡" },
+  { value: "gpt-5-nano",  label: "GPT-5 Nano",  tier: "輕量", costHint: "低",   recommend: "大量批次草稿測試" },
+  { value: "gpt-4o",      label: "GPT-4o",      tier: "經典", costHint: "中",   recommend: "穩定輸出，適合標準化內容" },
 ] as const;
 
 /** Claude 系列可選模型 */
 export const CLAUDE_MODELS = [
-  { value: "claude-opus-4-6",   label: "Claude Opus",   tier: "頂配", costHint: "高" },
-  { value: "claude-sonnet-4-6", label: "Claude Sonnet", tier: "標準", costHint: "中" },
-  { value: "claude-haiku-4-5",  label: "Claude Haiku",  tier: "輕量", costHint: "低" },
+  { value: "claude-opus-4-7",   label: "Claude Opus 4.7",   tier: "頂配", costHint: "極高", recommend: "最強逿輯整合、長文說服力最佳" },
+  { value: "claude-opus-4-6",   label: "Claude Opus 4.6",   tier: "頂配", costHint: "高",   recommend: "高品質 Body+CTA，正式廣告素材" },
+  { value: "claude-sonnet-4-6", label: "Claude Sonnet 4.6", tier: "標準", costHint: "中",   recommend: "日常首選，品質與速度平衡" },
+  { value: "claude-haiku-4-5",  label: "Claude Haiku 4.5",  tier: "輕量", costHint: "低",   recommend: "快速草稿、大量批次測試" },
 ] as const;
 
 export type GptModelValue = typeof GPT_MODELS[number]["value"];
