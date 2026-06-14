@@ -448,8 +448,9 @@ function EngineSlot({ label, vendor, model, onVendorChange, onModelChange }: Eng
               <span className="text-xs font-medium shrink-0">{m.label}</span>
               <span className={[
                 "text-[10px] px-1.5 py-0.5 rounded font-medium shrink-0",
-                m.tier === "頂配" ? "bg-amber-500/15 text-amber-400" :
+                m.tier === "極耗成本慎選" ? "bg-red-500/15 text-red-400" :
                 m.tier === "標準" ? "bg-primary/15 text-primary" :
+                m.tier === "經典" ? "bg-purple-500/15 text-purple-400" :
                 "bg-muted/50 text-muted-foreground",
               ].join(" ")}>{m.tier}</span>
             </div>
