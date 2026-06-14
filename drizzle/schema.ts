@@ -54,3 +54,21 @@ export const scriptMatrix = mysqlTable("script_matrix", {
 
 export type ScriptMatrixRow = typeof scriptMatrix.$inferSelect;
 export type InsertScriptMatrixRow = typeof scriptMatrix.$inferInsert;
+
+/**
+ * Notion 知識庫同步記錄
+ */
+export const notionSyncLogs = mysqlTable("notion_sync_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  attemptAt: timestamp("attemptAt").defaultNow().notNull(),
+  source: varchar("source", { length: 32 }).notNull().default("api"), // api | embedded
+  successCount: int("successCount").notNull().default(0),
+  failCount: int("failCount").notNull().default(0),
+  usedFallback: boolean("usedFallback").notNull().default(false),
+  partialSuccess: boolean("partialSuccess").notNull().default(false),
+  failedPagesJson: text("failedPagesJson"), // JSON: Array<{pageId, label, error}>
+  triggeredBy: varchar("triggeredBy", { length: 64 }).default("system"), // system | admin
+});
+
+export type NotionSyncLog = typeof notionSyncLogs.$inferSelect;
+export type InsertNotionSyncLog = typeof notionSyncLogs.$inferInsert;

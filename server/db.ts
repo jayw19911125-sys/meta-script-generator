@@ -1,6 +1,6 @@
 import { and, desc, eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertScriptHistory, InsertScriptMatrixRow, InsertUser, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
+import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -95,4 +95,18 @@ export async function deleteScriptMatrix(userId: number, id: number): Promise<vo
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot delete script matrix: database not available"); return; }
   await db.delete(scriptMatrix).where(and(eq(scriptMatrix.id, id), eq(scriptMatrix.userId, userId)));
+}
+
+// ========== Notion 同步記錄 CRUD ==========
+
+export async function insertNotionSyncLog(record: InsertNotionSyncLog): Promise<void> {
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot insert sync log: database not available"); return; }
+  await db.insert(notionSyncLogs).values(record);
+}
+
+export async function listNotionSyncLogs(limit = 10) {
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot list sync logs: database not available"); return []; }
+  return db.select().from(notionSyncLogs).orderBy(desc(notionSyncLogs.attemptAt)).limit(limit);
 }

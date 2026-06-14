@@ -5,10 +5,11 @@
 //   - A3 開頭鉤子庫（108 筆 Hook 數據分析）
 //   - H 系列框架（爆款方法論知識庫）
 //   - 快取結構擴充：hookData + methodologyData
-import { execSync } from "child_process";
+import { execSync, spawnSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
 import { EMBEDDED_NOTION_KNOWLEDGE } from "./notionKnowledge";
+import { insertNotionSyncLog } from "./db";
 
 // ========== 快取檔案路徑 ==========
 const CACHE_DIR = path.join(process.cwd(), ".notion-cache");
@@ -83,28 +84,51 @@ interface SyncAttemptRecord {
 }
 let lastSyncAttempt: SyncAttemptRecord | null = null;
 
-// ========== 從 Notion 拉取單一頁面 ==========
-function fetchNotionPage(pageId: string): { text: string; error: string | null } {
-  try {
-    const tmpFile = path.join("/tmp", `notion_fetch_${Date.now()}.json`);
-    fs.writeFileSync(tmpFile, JSON.stringify({ id: pageId }), "utf-8");
-    const result = execSync(
-      `manus-mcp-cli tool call notion-fetch --server notion --input "$(cat ${tmpFile})"`,
-      { encoding: "utf-8", timeout: 40000, shell: "/bin/bash" }
-    );
-    fs.unlinkSync(tmpFile);
-    const match = result.match(/Tool execution result:\n([\s\S]+)/);
-    if (!match) return { text: "", error: "回應格式異常，無法解析 Tool execution result" };
-    const parsed = JSON.parse(match[1].trim());
-    if (!parsed.text) return { text: "", error: "Notion 回傳內容為空（頁面可能未授權或不存在）" };
-    return { text: parsed.text, error: null };
-  } catch (e) {
-    const msg = e instanceof Error ? e.message : String(e);
-    // 提取最關鍵的錯誤訊息（去掉 stack trace）
-    const shortMsg = msg.split("\n")[0].slice(0, 120);
-    console.error(`[NotionSync] 拉取頁面 ${pageId} 失敗: ${shortMsg}`);
-    return { text: "", error: shortMsg };
+// ========== 從 Notion 拉取單一頁面（指數退避重試，最多 2 次）==========
+function sleep(ms: number): void {
+  // 同步等待（利用 spawnSync sleep）
+  spawnSync("sleep", [String(ms / 1000)]);
+}
+
+function fetchNotionPage(pageId: string, maxRetries = 2): { text: string; error: string | null } {
+  let lastError: string | null = null;
+
+  for (let attempt = 0; attempt <= maxRetries; attempt++) {
+    if (attempt > 0) {
+      const delay = Math.pow(2, attempt - 1) * 2000; // 2s, 4s
+      console.log(`[NotionSync] 第 ${attempt} 次重試頁面 ${pageId}，等待 ${delay}ms...`);
+      sleep(delay);
+    }
+
+    try {
+      const tmpFile = path.join("/tmp", `notion_fetch_${Date.now()}.json`);
+      fs.writeFileSync(tmpFile, JSON.stringify({ id: pageId }), "utf-8");
+      const result = execSync(
+        `manus-mcp-cli tool call notion-fetch --server notion --input "$(cat ${tmpFile})"`,
+        { encoding: "utf-8", timeout: 40000, shell: "/bin/bash" }
+      );
+      try { fs.unlinkSync(tmpFile); } catch { /* 忽略清除失敗 */ }
+
+      const match = result.match(/Tool execution result:\n([\s\S]+)/);
+      if (!match) {
+        lastError = "回應格式異常，無法解析 Tool execution result";
+        continue; // 重試
+      }
+      const parsed = JSON.parse(match[1].trim());
+      if (!parsed.text) {
+        // 頁面未授權或不存在：不重試（重試也不會成功）
+        return { text: "", error: "Notion 回傳內容為空（頁面未授權或不存在）" };
+      }
+      return { text: parsed.text, error: null };
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      lastError = msg.split("\n")[0].slice(0, 120);
+      console.warn(`[NotionSync] 頁面 ${pageId} 第 ${attempt + 1} 次失敗: ${lastError}`);
+    }
   }
+
+  console.error(`[NotionSync] 頁面 ${pageId} 重試 ${maxRetries} 次後仍失敗`);
+  return { text: "", error: lastError ?? "未知錯誤" };
 }
 
 // ========== 工具：提取 ## 段落 ==========
@@ -323,6 +347,21 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
   fs.writeFileSync(CACHE_FILE, JSON.stringify(cache, null, 2), "utf-8");
   memoryCache = cache;
   console.log(`[NotionSync v2.0] 同步完成，已更新快取（失敗 ${failedPages.length} 頁）`);
+
+  // 將同步結果寫入 DB（非阻塞）
+  const totalPages = 5; // L01+L02+L03+A3+H
+  const successCount = totalPages - failedPages.length;
+  insertNotionSyncLog({
+    attemptAt: new Date(attemptAt),
+    source: cache.source ?? "api",
+    successCount,
+    failCount: failedPages.length,
+    usedFallback,
+    partialSuccess: hasFunnels && failedPages.length > 0,
+    failedPagesJson: failedPages.length > 0 ? JSON.stringify(failedPages) : null,
+    triggeredBy: "system",
+  }).catch(e => console.warn("[NotionSync] 寫入 sync log 失敗:", e));
+
   return cache;
 }
 

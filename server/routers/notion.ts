@@ -11,6 +11,7 @@ import { z } from "zod";
 import { execSync } from "child_process";
 import { approvedProcedure, adminProcedure, router } from "../_core/trpc";
 import { getCacheStatus, syncNotionKnowledge } from "../notionSyncService";
+import { listNotionSyncLogs, insertNotionSyncLog } from "../db";
 
 // ── 欄位對照表 ──────────────────────────────────────────────────────────────
 
@@ -328,11 +329,23 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
 
   // 手動強制同步 (admin only) ──────────────────────────────────────────────────
   sync: adminProcedure
-    .mutation(async () => {
+    .mutation(async ({ ctx }) => {
+      const triggeredBy = ctx.user?.name ?? "admin";
       try {
         const cache = await syncNotionKnowledge(true);
         const count = Object.keys(cache.funnelFrameworks).length;
         const afterStatus = getCacheStatus();
+        // 記錄手動觸發的同步記錄
+        insertNotionSyncLog({
+          attemptAt: new Date(),
+          source: cache.source ?? "api",
+          successCount: 5 - afterStatus.failedPages.length,
+          failCount: afterStatus.failedPages.length,
+          usedFallback: afterStatus.usedFallback,
+          partialSuccess: afterStatus.partialSuccess,
+          failedPagesJson: afterStatus.failedPages.length > 0 ? JSON.stringify(afterStatus.failedPages) : null,
+          triggeredBy,
+        }).catch(() => {});
         return {
           success: true,
           message: `已同步 ${count} 個漏斗框架，來源：${cache.source ?? "api"}`,
@@ -349,5 +362,25 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
           partialSuccess: false,
         };
       }
+    }),
+
+  // 同步記錄查詢 (admin only)
+  syncLogs: adminProcedure
+    .input(z.object({ limit: z.number().min(1).max(50).optional().default(10) }))
+    .query(async ({ input }) => {
+      const logs = await listNotionSyncLogs(input.limit);
+      return logs.map(log => ({
+        id: log.id,
+        attemptAt: log.attemptAt.toISOString(),
+        source: log.source,
+        successCount: log.successCount,
+        failCount: log.failCount,
+        usedFallback: log.usedFallback,
+        partialSuccess: log.partialSuccess,
+        failedPages: log.failedPagesJson
+          ? (JSON.parse(log.failedPagesJson) as Array<{ pageId: string; label: string; error: string }>)
+          : [],
+        triggeredBy: log.triggeredBy ?? "system",
+      }));
     }),
 });

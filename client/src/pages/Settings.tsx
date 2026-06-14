@@ -15,13 +15,17 @@ import {
   AlertCircle,
   AlertTriangle,
   CheckCircle2,
+  ChevronDown,
+  ChevronUp,
   Clock,
   Database,
   ExternalLink,
+  History,
   Key,
   RefreshCw,
   Settings as SettingsIcon,
   Shield,
+  User,
   Wifi,
   WifiOff,
   XCircle,
@@ -52,14 +56,29 @@ const FUNNEL_TYPE_LABELS: Record<string, string> = {
   hot:  "熱受眾",
 };
 
+// Notion 頁面 ID → Notion 頁面連結（供授權診斷用）
+const NOTION_PAGE_LINKS: Record<string, string> = {
+  "37997a06-fae5-81d6-9837-c8b6c1dd242d": "https://www.notion.so/37997a06fae581d69837c8b6c1dd242d",
+  "37997a06-fae5-8109-801f-d3835ed6fa6e": "https://www.notion.so/37997a06fae58109801fd3835ed6fa6e",
+  "37997a06-fae5-8191-9536-e1f3aff7c48e": "https://www.notion.so/37997a06fae581919536e1f3aff7c48e",
+  "37997a06-fae5-815d-b375-ef4353b4d362": "https://www.notion.so/37997a06fae5815db375ef4353b4d362",
+  "37b97a06-fae5-819e-b37a-f3f13be3f8c4": "https://www.notion.so/37b97a06fae5819eb37af3f13be3f8c4",
+};
+
 export default function Settings() {
   const { user } = useAuth();
   const isAdmin = user?.role === "admin";
   const [isSyncing, setIsSyncing] = useState(false);
+  const [showAllLogs, setShowAllLogs] = useState(false);
 
   const { data: status, refetch: refetchStatus } = trpc.notion.status.useQuery(undefined, {
     refetchInterval: 30000,
   });
+
+  const { data: syncLogs } = trpc.notion.syncLogs.useQuery(
+    { limit: 10 },
+    { enabled: isAdmin, refetchInterval: 60000 }
+  );
 
   const syncMutation = trpc.notion.sync.useMutation({
     onMutate: () => setIsSyncing(true),
@@ -376,6 +395,127 @@ export default function Settings() {
             )}
           </CardContent>
         </Card>
+
+        {/* 最近同步記錄 (admin only) */}
+        {isAdmin && (
+          <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-slate-500/10 text-slate-400">
+                    <History className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <CardTitle className="text-base">最近同步記錄</CardTitle>
+                    <CardDescription className="text-xs mt-0.5">
+                      最近 10 次同步結果，含手動與自動觸發
+                    </CardDescription>
+                  </div>
+                </div>
+                {syncLogs && syncLogs.length > 5 && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowAllLogs(v => !v)}
+                    className="gap-1 text-xs text-muted-foreground"
+                  >
+                    {showAllLogs ? (
+                      <><ChevronUp className="h-3.5 w-3.5" />收起</>
+                    ) : (
+                      <><ChevronDown className="h-3.5 w-3.5" />展開全部</>
+                    )}
+                  </Button>
+                )}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {!syncLogs || syncLogs.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-8 text-muted-foreground">
+                  <History className="h-8 w-8 mb-2 opacity-30" />
+                  <p className="text-sm">尚無同步記錄</p>
+                  <p className="text-xs mt-1">點擊「立即同步」後即可在此查看</p>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {(showAllLogs ? syncLogs : syncLogs.slice(0, 5)).map((log) => (
+                    <div
+                      key={log.id}
+                      className={`rounded-lg border px-4 py-3 ${
+                        log.failCount === 0
+                          ? "border-emerald-500/20 bg-emerald-500/5"
+                          : log.usedFallback
+                          ? "border-red-500/20 bg-red-500/5"
+                          : "border-amber-500/20 bg-amber-500/5"
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          {log.failCount === 0 ? (
+                            <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
+                          ) : log.usedFallback ? (
+                            <XCircle className="h-3.5 w-3.5 text-red-400 shrink-0" />
+                          ) : (
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-400 shrink-0" />
+                          )}
+                          <span className="text-xs font-medium">
+                            {log.failCount === 0
+                              ? `全部成功（${log.successCount}/5 頁）`
+                              : log.usedFallback
+                              ? `全部失敗，使用内嵌知識庫`
+                              : `部分成功（${log.successCount}/5 頁）`}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <span className="flex items-center gap-1">
+                            <User className="h-3 w-3" />
+                            {log.triggeredBy}
+                          </span>
+                          <span>{formatRelativeTime(log.attemptAt)}</span>
+                        </div>
+                      </div>
+
+                      {/* 失敗頁面詳情 + 授權診斷連結 */}
+                      {log.failedPages.length > 0 && (
+                        <div className="mt-2 space-y-1.5">
+                          {log.failedPages.map((page) => {
+                            const isAuthError = page.error.includes("未授權") || page.error.includes("不存在") || page.error.includes("為空");
+                            const notionLink = NOTION_PAGE_LINKS[page.pageId];
+                            return (
+                              <div key={page.pageId} className="rounded border border-border/20 bg-background/30 px-2.5 py-1.5">
+                                <div className="flex items-start justify-between gap-2">
+                                  <div className="flex-1 min-w-0">
+                                    <span className="text-xs font-medium text-muted-foreground">{page.label}</span>
+                                    <p className="text-[11px] text-red-400/70 font-mono mt-0.5 break-all">{page.error}</p>
+                                  </div>
+                                  {isAuthError && notionLink && (
+                                    <a
+                                      href={notionLink}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="shrink-0 flex items-center gap-1 text-[11px] text-primary hover:text-primary/80 underline underline-offset-2"
+                                    >
+                                      授權頁面
+                                      <ExternalLink className="h-2.5 w-2.5" />
+                                    </a>
+                                  )}
+                                </div>
+                                {isAuthError && (
+                                  <p className="text-[10px] text-muted-foreground/60 mt-1">
+                                    指引：點擊「授權頁面」→ 頁面右上角 Share → 把你的 Integration 加入存取權限
+                                  </p>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        )}
 
         {/* 系統資訊 */}
         <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
