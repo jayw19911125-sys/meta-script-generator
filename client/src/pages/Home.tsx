@@ -429,7 +429,7 @@ export default function Home() {
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-medium text-foreground">雙引擎運算中...</p>
-                    <p className="text-xs text-muted-foreground mt-1">GPT 發散 → Claude 整合</p>
+                    <p className="text-xs text-muted-foreground mt-1">{engineConfig.scatterVendor.toUpperCase()} 發散 → {engineConfig.integrateVendor.toUpperCase()} 整合</p>
                   </div>
                 </div>
               ) : output ? (
