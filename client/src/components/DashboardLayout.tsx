@@ -23,7 +23,7 @@ import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
 import { trpc } from "@/lib/trpc";
 import { PENDING_APPROVAL_ERR_MSG } from "@shared/const";
-import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield, ShieldCheck } from "lucide-react";
+import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield, ShieldCheck, Settings } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +33,7 @@ const menuItems = [
   { icon: Zap, label: "快速出稿", path: "/" },
   { icon: Grid3X3, label: "3-3-3 矩陣", path: "/matrix" },
   { icon: History, label: "歷史紀錄", path: "/history" },
+  { icon: Settings, label: "系統設定", path: "/settings" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

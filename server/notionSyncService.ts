@@ -8,6 +8,7 @@
 import { execSync } from "child_process";
 import * as fs from "fs";
 import * as path from "path";
+import { EMBEDDED_NOTION_KNOWLEDGE } from "./notionKnowledge";
 
 // ========== 快取檔案路徑 ==========
 const CACHE_DIR = path.join(process.cwd(), ".notion-cache");
@@ -64,6 +65,7 @@ export interface MethodologyKnowledge {
 
 export interface NotionKnowledgeCache {
   lastSyncAt: string;
+  source?: "api" | "disk" | "embedded";
   funnelFrameworks: Record<string, FunnelFramework>;
   hookKnowledge: HookKnowledge | null;
   methodologyKnowledge: MethodologyKnowledge | null;
@@ -270,9 +272,15 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
     console.warn("[NotionSync] ⚠️ H 系列方法論拉取失敗");
   }
 
+  // 若 L 系列全部拉取失敗，使用內嵌快照作為 fallback
+  const hasFunnels = Object.keys(funnelFrameworks).length > 0;
+  if (!hasFunnels) {
+    console.warn("[NotionSync] ⚠️ L 系列全部失敗，使用內嵌知識庫 fallback");
+  }
   const cache: NotionKnowledgeCache = {
     lastSyncAt: new Date().toISOString(),
-    funnelFrameworks,
+    source: hasFunnels ? "api" : "embedded",
+    funnelFrameworks: hasFunnels ? funnelFrameworks : EMBEDDED_NOTION_KNOWLEDGE.funnelFrameworks,
     hookKnowledge,
     methodologyKnowledge,
   };
@@ -346,16 +354,26 @@ export function getMethodologySummary(
 }
 
 // ========== 快取狀態 ==========
-export function getCacheStatus(): { lastSyncAt: string | null; isStale: boolean; hasHookData: boolean; hasMethodology: boolean } {
+export function getCacheStatus(): { lastSyncAt: string | null; isStale: boolean; source: string; hasHookData: boolean; hasMethodology: boolean; funnelCount: number } {
   if (!memoryCache) {
-    return { lastSyncAt: null, isStale: true, hasHookData: false, hasMethodology: false };
+    // 尚未同步，回傳內嵌快照狀態
+    return {
+      lastSyncAt: EMBEDDED_NOTION_KNOWLEDGE.lastSyncAt,
+      isStale: true,
+      source: "embedded",
+      hasHookData: false,
+      hasMethodology: false,
+      funnelCount: Object.keys(EMBEDDED_NOTION_KNOWLEDGE.funnelFrameworks).length,
+    };
   }
   const age = Date.now() - new Date(memoryCache.lastSyncAt).getTime();
   return {
     lastSyncAt: memoryCache.lastSyncAt,
     isStale: age >= CACHE_TTL_MS,
+    source: memoryCache.source || "api",
     hasHookData: !!memoryCache.hookKnowledge,
     hasMethodology: !!memoryCache.methodologyKnowledge,
+    funnelCount: Object.keys(memoryCache.funnelFrameworks).length,
   };
 }
 

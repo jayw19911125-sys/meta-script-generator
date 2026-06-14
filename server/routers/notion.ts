@@ -9,7 +9,8 @@
 
 import { z } from "zod";
 import { execSync } from "child_process";
-import { approvedProcedure, router } from "../_core/trpc";
+import { approvedProcedure, adminProcedure, router } from "../_core/trpc";
+import { getCacheStatus, syncNotionKnowledge } from "../notionSyncService";
 
 // ── 欄位對照表 ──────────────────────────────────────────────────────────────
 
@@ -297,5 +298,45 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
 
       const notionUrl = (result as { url?: string })?.url ?? null;
       return { success: true, notionUrl };
+    }),
+
+  // ── 知識庫狀態查詢 (所有已審核用戶可讀) ──────────────────────────────────────────
+  status: approvedProcedure
+    .query(async () => {
+      const cacheStatus = getCacheStatus();
+      const hasToken = !!process.env.NOTION_API_TOKEN;
+      const cache = await import("../notionSyncService").then(m => m.getCurrentCache());
+      const frameworks = cache
+        ? Object.values(cache.funnelFrameworks).map(f => ({ id: f.id, title: f.title, funnelType: f.funnelType }))
+        : Object.values((await import("../notionKnowledge")).EMBEDDED_NOTION_KNOWLEDGE.funnelFrameworks)
+            .map(f => ({ id: f.id, title: f.title, funnelType: f.funnelType }));
+      return {
+        lastSyncAt: cacheStatus.lastSyncAt,
+        isStale: cacheStatus.isStale,
+        source: cacheStatus.source,
+        hasToken,
+        hasHookData: cacheStatus.hasHookData,
+        hasMethodology: cacheStatus.hasMethodology,
+        frameworkCount: cacheStatus.funnelCount,
+        frameworks,
+      };
+    }),
+
+  // 手動強制同步 (admin only) ──────────────────────────────────────────────────
+  sync: adminProcedure
+    .mutation(async () => {
+      try {
+        const cache = await syncNotionKnowledge(true);
+        const count = Object.keys(cache.funnelFrameworks).length;
+        return {
+          success: true,
+          message: `已同步 ${count} 個漏斗框架，來源：${cache.source ?? "api"}`
+        };
+      } catch (e) {
+        return {
+          success: false,
+          message: `同步失敗：${e instanceof Error ? e.message : "未知錯誤"}`
+        };
+      }
     }),
 });
