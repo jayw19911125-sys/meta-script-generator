@@ -1,17 +1,7 @@
 import { int, mysqlEnum, mysqlTable, text, timestamp, varchar } from "drizzle-orm/mysql-core";
 
-/**
- * Core user table backing auth flow.
- * Extend this file with additional tables as your product grows.
- * Columns use camelCase to match both database fields and generated types.
- */
 export const users = mysqlTable("users", {
-  /**
-   * Surrogate primary key. Auto-incremented numeric value managed by the database.
-   * Use this for relations between tables.
-   */
   id: int("id").autoincrement().primaryKey(),
-  /** Manus OAuth identifier (openId) returned from the OAuth callback. Unique per user. */
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   name: text("name"),
   email: varchar("email", { length: 320 }),
@@ -25,4 +15,41 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * 腳本生成歷史紀錄（雙引擎模式）
+ */
+export const scriptHistory = mysqlTable("script_history", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  industry: varchar("industry", { length: 255 }).notNull(),
+  funnel: varchar("funnel", { length: 255 }).notNull(),
+  engine: varchar("engine", { length: 32 }).notNull(),
+  gptOutput: text("gptOutput"),
+  finalOutput: text("finalOutput").notNull(),
+  inputSnapshot: text("inputSnapshot"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScriptHistory = typeof scriptHistory.$inferSelect;
+export type InsertScriptHistory = typeof scriptHistory.$inferInsert;
+
+/**
+ * 3-3-3 矩陣歷史紀錄
+ */
+export const scriptMatrix = mysqlTable("script_matrix", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull(),
+  productName: varchar("productName", { length: 255 }).notNull(),
+  industry: varchar("industry", { length: 255 }).notNull(),
+  funnel: varchar("funnel", { length: 255 }).notNull(),
+  hooksJson: text("hooksJson").notNull(),
+  bodiesJson: text("bodiesJson").notNull(),
+  ctasJson: text("ctasJson").notNull(),
+  recommendationsJson: text("recommendationsJson").notNull(),
+  inputSnapshot: text("inputSnapshot"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ScriptMatrixRow = typeof scriptMatrix.$inferSelect;
+export type InsertScriptMatrixRow = typeof scriptMatrix.$inferInsert;
