@@ -117,6 +117,7 @@ ${scriptContent}
 
 *由 Meta 腳本生成器自動存入 · ${today}*`;
 
+      const nowISO = new Date().toISOString();
       const result = callNotionMCP("notion-create-page", {
         data_source_id: "ae097a06-fae5-836d-8c3b-87963f07aee3",
         properties: {
@@ -128,6 +129,9 @@ ${scriptContent}
           成效標籤:     "待評估",
           來源工具:     "Meta腳本生成器",
           備註:         engineConfig ? `引擎：${engineConfig}` : "",
+          建立者:     generatedBy,
+          "date:生成時間:start": nowISO,
+          "date:生成時間:is_datetime": 1,
         },
         content: pageContent,
       });
@@ -260,6 +264,7 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
 
 *由 Meta 腳本生成器自動存入 · ${today}*`;
 
+      const nowISO2 = new Date().toISOString();
       const result = callNotionMCP("notion-create-page", {
         data_source_id: "ae097a06-fae5-836d-8c3b-87963f07aee3",
         properties: {
@@ -271,6 +276,9 @@ ${checklistNotes ? `---\n\n## 🤖 AI 評分備註\n\n${checklistNotes}` : ""}
           成效標籤:     "待評估",
           來源工具:     "Meta腳本生成器",
           備註:         engineConfig ? `引擎：${engineConfig}` : "",
+          建立者:     generatedBy,
+          "date:生成時間:start": nowISO2,
+          "date:生成時間:is_datetime": 1,
         },
         content: pageContent,
       });
