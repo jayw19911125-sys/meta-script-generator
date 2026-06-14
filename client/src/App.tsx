@@ -8,6 +8,7 @@ import HistoryPage from "./pages/HistoryPage";
 import AdminPage from "@/pages/AdminPage";
 import SettingsPage from "@/pages/Settings";
 import NotFound from "./pages/NotFound";
+import PWAInstallBanner from "./components/PWAInstallBanner";
 
 export default function App() {
   const isMobile = useIsMobile();
@@ -24,6 +25,7 @@ export default function App() {
         </Switch>
       </DashboardLayout>
       <Toaster richColors position={isMobile ? "bottom-center" : "top-right"} />
+      {isMobile && <PWAInstallBanner />}
     </>
   );
 }

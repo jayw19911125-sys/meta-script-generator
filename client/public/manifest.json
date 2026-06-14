@@ -1,0 +1,29 @@
+{
+  "name": "META 腳本生成器",
+  "short_name": "META腳本",
+  "description": "好創整合行銷 × 雙引擎 AI 導購型短影音腳本生成器",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0e0f14",
+  "theme_color": "#0e0f14",
+  "lang": "zh-TW",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/manus-storage/icon-192_3354a938.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/manus-storage/icon-512_87e78849.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["productivity", "business"],
+  "screenshots": [],
+  "prefer_related_applications": false
+}
