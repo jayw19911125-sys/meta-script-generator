@@ -289,14 +289,14 @@ export default function MatrixPage() {
   return (
     <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between gap-3">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center shrink-0">
             <Grid3X3 className="w-5 h-5 text-white" />
           </div>
           <div>
             <h1 className="text-xl font-bold text-foreground">3-3-3 矩陣生成</h1>
-            <p className="text-sm text-muted-foreground">分步生成 Hook × Body × CTA 矩陣組合</p>
+            <p className="text-sm text-muted-foreground hidden sm:block">分步生成 Hook × Body × CTA 矩陣組合</p>
           </div>
         </div>
         {matrix.hooks.length > 0 && (
@@ -681,7 +681,8 @@ export default function MatrixPage() {
                         {saveToNotionMutation.isPending
                           ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                           : <Eye className="w-3.5 h-3.5 mr-1" />}
-                        {saveToNotionMutation.isPending ? "存入中..." : "預覽存入 Notion"}
+                        <span className="hidden sm:inline">{saveToNotionMutation.isPending ? "存入中..." : "預覽存入 Notion"}</span>
+                        <span className="sm:hidden">{saveToNotionMutation.isPending ? "存入..." : "Notion"}</span>
                       </Button>
                     )}
                   </div>
@@ -739,7 +740,7 @@ export default function MatrixPage() {
 
       {/* Notion 預覽存入視窗 */}
       <Dialog open={notionPreviewOpen} onOpenChange={setNotionPreviewOpen}>
-        <DialogContent className="max-w-xl flex flex-col bg-[oklch(0.15_0.02_240)] border-border/40">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl max-h-[90dvh] flex flex-col overflow-y-auto bg-[oklch(0.15_0.02_240)] border-border/40">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold flex items-center gap-2">
               <Eye className="w-4 h-4 text-primary" />

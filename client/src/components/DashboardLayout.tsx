@@ -248,20 +248,44 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
       <SidebarInset>
         {isMobile && (
           <div className="flex border-b border-border/50 h-14 items-center justify-between bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-3">
-              <SidebarTrigger className="h-9 w-9 rounded-lg" />
+            <div className="flex items-center gap-2.5">
+              <SidebarTrigger className="h-9 w-9 rounded-lg shrink-0" />
               <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md brand-gradient flex items-center justify-center">
+                <div className="w-6 h-6 rounded-md brand-gradient flex items-center justify-center shrink-0">
                   <Sparkles className="w-3.5 h-3.5 text-white" />
                 </div>
-                <span className="font-semibold text-sm text-foreground">
+                <span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
                   {activeMenuItem?.label ?? "Script Gen V2"}
                 </span>
               </div>
             </div>
+            {/* 手機端右側：用戶頭像快速選單 */}
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <button className="h-8 w-8 rounded-full border border-border/50 bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                  {user?.name?.charAt(0).toUpperCase() ?? "U"}
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end" className="w-44">
+                <div className="px-3 py-2 border-b border-border/30">
+                  <p className="text-xs font-medium truncate text-foreground">{user?.name ?? "使用者"}</p>
+                  <p className="text-[11px] text-muted-foreground truncate mt-0.5">{user?.email ?? ""}</p>
+                </div>
+                {user?.role === "admin" && (
+                  <DropdownMenuItem onClick={() => setLocation("/admin")} className="cursor-pointer">
+                    <ShieldCheck className="mr-2 h-4 w-4 text-amber-400" />
+                    <span>管理後台</span>
+                  </DropdownMenuItem>
+                )}
+                <DropdownMenuItem onClick={logout} className="cursor-pointer text-destructive focus:text-destructive">
+                  <LogOut className="mr-2 h-4 w-4" />
+                  <span>登出</span>
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         )}
-        <main className="flex-1 overflow-auto">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
       </SidebarInset>
     </>
   );

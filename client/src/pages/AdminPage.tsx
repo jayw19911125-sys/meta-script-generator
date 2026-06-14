@@ -65,9 +65,9 @@ function AdminContent() {
   const pending = users?.filter(u => !u.approved) ?? [];
 
   return (
-    <div className="p-6 max-w-4xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
       {/* 標題列 */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3">
           <div className="w-9 h-9 rounded-lg brand-gradient flex items-center justify-center">
             <Users className="w-4.5 h-4.5 text-white" />
@@ -235,65 +235,66 @@ function UserRow({
   });
 
   return (
-    <div className="flex items-center gap-3 px-4 py-3 hover:bg-muted/20 transition-colors">
-      {/* 頭像 */}
-      <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
-        <span className="text-xs font-medium text-muted-foreground">{initials}</span>
-      </div>
-
-      {/* 資訊 */}
-      <div className="flex-1 min-w-0">
-        <div className="flex items-center gap-2">
-          <span className="text-sm font-medium text-foreground truncate">
-            {user.name ?? "（未命名）"}
-          </span>
-          {user.role === "admin" && (
-            <Crown className="w-3 h-3 text-amber-400 shrink-0" />
-          )}
+    <div className="px-4 py-3 hover:bg-muted/20 transition-colors">
+      {/* 上半行：頭像 + 姓名 + 操作按鈕 */}
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 rounded-full bg-muted flex items-center justify-center shrink-0">
+          <span className="text-xs font-medium text-muted-foreground">{initials}</span>
         </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-medium text-foreground truncate">
+              {user.name ?? "（未命名）"}
+            </span>
+            {user.role === "admin" && (
+              <Crown className="w-3 h-3 text-amber-400 shrink-0" />
+            )}
+          </div>
+        </div>
+        {/* 狀態 badge */}
+        <Badge
+          variant="outline"
+          className={
+            user.approved
+              ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 text-xs shrink-0"
+              : "border-amber-500/30 text-amber-400 bg-amber-500/5 text-xs shrink-0"
+          }
+        >
+          {user.approved ? (
+            <><CheckCircle2 className="w-3 h-3 mr-1" />已開通</>
+          ) : (
+            <><Clock className="w-3 h-3 mr-1" />待審核</>
+          )}
+        </Badge>
+        {/* 操作按鈕 */}
+        {user.role !== "admin" && (
+          <Button
+            variant="outline"
+            size="sm"
+            disabled={isPending}
+            onClick={() => onToggle(!user.approved)}
+            className={`text-xs gap-1.5 shrink-0 transition-all ${
+              user.approved
+                ? "hover:border-destructive/50 hover:text-destructive hover:bg-destructive/5"
+                : "hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
+            }`}
+          >
+            {isPending ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : user.approved ? (
+              <><ShieldOff className="w-3.5 h-3.5" /><span className="hidden sm:inline">封鎖</span></>
+            ) : (
+              <><ShieldCheck className="w-3.5 h-3.5" /><span className="hidden sm:inline">開通</span></>
+            )}
+          </Button>
+        )}
+      </div>
+      {/* 下半行：Email + 加入時間 */}
+      <div className="mt-1 pl-11">
         <p className="text-xs text-muted-foreground truncate">
           {user.email ?? "無 Email"} · 加入 {joinedAt} · 最後登入 {lastSeen}
         </p>
       </div>
-
-      {/* 狀態 badge */}
-      <Badge
-        variant="outline"
-        className={
-          user.approved
-            ? "border-emerald-500/30 text-emerald-400 bg-emerald-500/5 text-xs"
-            : "border-amber-500/30 text-amber-400 bg-amber-500/5 text-xs"
-        }
-      >
-        {user.approved ? (
-          <><CheckCircle2 className="w-3 h-3 mr-1" />已開通</>
-        ) : (
-          <><Clock className="w-3 h-3 mr-1" />待審核</>
-        )}
-      </Badge>
-
-      {/* 操作按鈕 */}
-      {user.role !== "admin" && (
-        <Button
-          variant="outline"
-          size="sm"
-          disabled={isPending}
-          onClick={() => onToggle(!user.approved)}
-          className={`text-xs gap-1.5 shrink-0 transition-all ${
-            user.approved
-              ? "hover:border-destructive/50 hover:text-destructive hover:bg-destructive/5"
-              : "hover:border-emerald-500/50 hover:text-emerald-400 hover:bg-emerald-500/5"
-          }`}
-        >
-          {isPending ? (
-            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-          ) : user.approved ? (
-            <><ShieldOff className="w-3.5 h-3.5" />封鎖</>
-          ) : (
-            <><ShieldCheck className="w-3.5 h-3.5" />開通</>
-          )}
-        </Button>
-      )}
     </div>
   );
 }

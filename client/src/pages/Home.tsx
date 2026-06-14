@@ -137,7 +137,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
         {/* Left: Form */}
         <div className="space-y-4">
           {/* Engine Preset */}
@@ -353,7 +353,7 @@ export default function Home() {
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-foreground">生成結果</CardTitle>
                 {output && (
-                  <div className="flex items-center gap-2 flex-wrap">
+                  <div className="flex items-center gap-1 flex-wrap">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -382,7 +382,7 @@ export default function Home() {
                       TXT
                     </Button>
                     {/* Notion 存入按鈕 */}
-                    <div className="h-4 w-px bg-border/50" />
+                    <div className="h-4 w-px bg-border/50 hidden sm:block" />
                     {notionSaved ? (
                       <Button
                         variant="ghost"
@@ -391,7 +391,7 @@ export default function Home() {
                         className="h-7 px-2 text-xs text-emerald-400 hover:text-emerald-300 transition-colors"
                       >
                         <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                        已存入 Notion
+                        <span className="hidden sm:inline">已存入 Notion</span>
                         {notionUrl && <ExternalLink className="w-3 h-3 ml-1" />}
                       </Button>
                     ) : (
@@ -412,7 +412,8 @@ export default function Home() {
                         {saveToNotionMutation.isPending
                           ? <Loader2 className="w-3.5 h-3.5 mr-1 animate-spin" />
                           : <Eye className="w-3.5 h-3.5 mr-1" />}
-                        {saveToNotionMutation.isPending ? "存入中..." : "預覽存入 Notion"}
+                        <span className="hidden sm:inline">{saveToNotionMutation.isPending ? "存入中..." : "預覽存入 Notion"}</span>
+                        <span className="sm:hidden">{saveToNotionMutation.isPending ? "存入..." : "Notion"}</span>
                       </Button>
                     )}
                   </div>
@@ -443,7 +444,7 @@ export default function Home() {
                   </div>
                   <div>
                     <p className="text-sm font-medium text-muted-foreground">尚未生成腳本</p>
-                    <p className="text-xs text-muted-foreground/60 mt-1">填寫左側表單後點擊「開始生成」</p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">填寫上方表單後點擊「開始生成」</p>
                   </div>
                 </div>
               )}
@@ -454,7 +455,7 @@ export default function Home() {
 
       {/* Notion 預覽存入視窗 */}
       <Dialog open={notionPreviewOpen} onOpenChange={setNotionPreviewOpen}>
-        <DialogContent className="max-w-2xl max-h-[85vh] flex flex-col bg-[oklch(0.15_0.02_240)] border-border/40">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-2xl max-h-[90dvh] flex flex-col bg-[oklch(0.15_0.02_240)] border-border/40">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold flex items-center gap-2">
               <Eye className="w-4 h-4 text-primary" />

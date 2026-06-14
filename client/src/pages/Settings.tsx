@@ -213,9 +213,9 @@ export default function Settings() {
         {/* Notion 知識庫同步 */}
         <Card className="border-border/40 bg-card/50 backdrop-blur-sm">
           <CardHeader>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-start justify-between gap-2">
               <div className="flex items-center gap-3">
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400">
+                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-violet-500/10 text-violet-400 shrink-0">
                   <Database className="h-4 w-4" />
                 </div>
                 <div>
@@ -226,7 +226,7 @@ export default function Settings() {
                 </div>
               </div>
               {status && (
-                <div className="flex items-center gap-1.5 text-xs">
+                <div className="flex items-center gap-1.5 text-xs mt-1 sm:mt-0">
                   {status.hasToken ? (
                     <>
                       <Wifi className="h-3.5 w-3.5 text-emerald-400" />
@@ -366,8 +366,8 @@ export default function Settings() {
 
             <Separator className="bg-border/30" />
 
-            <div className="flex items-center justify-between">
-              <div>
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium">手動同步</p>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   {status?.hasToken
@@ -380,7 +380,7 @@ export default function Settings() {
                 disabled={!isAdmin || isSyncing}
                 variant="outline"
                 size="sm"
-                className="gap-2 min-w-[100px]"
+                className="gap-2 shrink-0"
               >
                 <RefreshCw className={`h-3.5 w-3.5 ${isSyncing ? "animate-spin" : ""}`} />
                 {isSyncing ? "同步中..." : "立即同步"}
@@ -448,7 +448,7 @@ export default function Settings() {
                           : "border-amber-500/20 bg-amber-500/5"
                       }`}
                     >
-                      <div className="flex items-center justify-between">
+                      <div className="flex flex-wrap items-start justify-between gap-2">
                         <div className="flex items-center gap-2">
                           {log.failCount === 0 ? (
                             <CheckCircle2 className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
@@ -461,11 +461,11 @@ export default function Settings() {
                             {log.failCount === 0
                               ? `全部成功（${log.successCount}/5 頁）`
                               : log.usedFallback
-                              ? `全部失敗，使用内嵌知識庫`
+                              ? `全部失敗，使用內嵌知識庫`
                               : `部分成功（${log.successCount}/5 頁）`}
                           </span>
                         </div>
-                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground flex-wrap">
                           <span className="flex items-center gap-1">
                             <User className="h-3 w-3" />
                             {log.triggeredBy}
@@ -530,8 +530,8 @@ export default function Settings() {
                 <span className="text-sm font-medium">{user?.name ?? "未知"}</span>
               </div>
               <div className="flex items-center justify-between py-2 border-b border-border/30">
-                <span className="text-sm text-muted-foreground">Email</span>
-                <span className="text-sm font-medium">{user?.email ?? "未設定"}</span>
+                <span className="text-sm text-muted-foreground shrink-0">Email</span>
+                <span className="text-sm font-medium truncate ml-3 text-right">{user?.email ?? "未設定"}</span>
               </div>
               <div className="flex items-center justify-between py-2">
                 <span className="text-sm text-muted-foreground">角色</span>

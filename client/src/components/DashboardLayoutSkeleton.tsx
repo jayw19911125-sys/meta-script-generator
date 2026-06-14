@@ -3,8 +3,8 @@ import { Skeleton } from './ui/skeleton';
 export function DashboardLayoutSkeleton() {
   return (
     <div className="flex min-h-screen bg-background">
-      {/* Sidebar skeleton */}
-      <div className="w-[280px] border-r border-border bg-background p-4 space-y-6">
+      {/* Sidebar skeleton — 手機隱藏，桌機顯示 */}
+      <div className="hidden md:flex w-[280px] border-r border-border bg-background p-4 flex-col space-y-6 relative">
         {/* Logo area */}
         <div className="flex items-center gap-3 px-2">
           <Skeleton className="h-8 w-8 rounded-md" />
@@ -30,8 +30,17 @@ export function DashboardLayoutSkeleton() {
         </div>
       </div>
 
+      {/* Mobile top bar skeleton */}
+      <div className="md:hidden fixed top-0 left-0 right-0 z-50 h-14 border-b border-border bg-background flex items-center justify-between px-4">
+        <div className="flex items-center gap-3">
+          <Skeleton className="h-8 w-8 rounded-md" />
+          <Skeleton className="h-4 w-24" />
+        </div>
+        <Skeleton className="h-8 w-8 rounded-full" />
+      </div>
+
       {/* Main content skeleton */}
-      <div className="flex-1 p-4 space-y-4">
+      <div className="flex-1 p-4 pt-[72px] md:pt-4 space-y-4">
         {/* Content blocks */}
         <Skeleton className="h-12 w-48 rounded-lg" />
         <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
