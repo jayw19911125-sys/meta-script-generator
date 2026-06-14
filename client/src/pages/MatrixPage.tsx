@@ -311,8 +311,8 @@ export default function MatrixPage() {
         )}
       </div>
 
-      {/* Progress Steps */}
-      <div className="flex items-center gap-1 overflow-x-auto pb-1">
+      {/* Progress Steps — 桌機橫向步驟列，手機精簡進度條 */}
+      <div className="hidden sm:flex items-center gap-1 overflow-x-auto pb-1">
         {STEP_ORDER.map((step, idx) => {
           const isCompleted = idx < stepIndex;
           const isCurrent = step === currentStep;
@@ -339,6 +339,39 @@ export default function MatrixPage() {
             </div>
           );
         })}
+      </div>
+
+      {/* 手機精簡進度條 */}
+      <div className="sm:hidden space-y-2">
+        <div className="flex items-center justify-between">
+          <span className={`text-xs font-semibold ${STEP_COLORS[currentStep]}`}>
+            {STEP_LABELS[currentStep]}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            步驟 {stepIndex + 1} / {STEP_ORDER.length}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-border/40 overflow-hidden">
+          <div
+            className="h-full rounded-full bg-primary transition-all duration-300"
+            style={{ width: `${((stepIndex + 1) / STEP_ORDER.length) * 100}%` }}
+          />
+        </div>
+        {/* 已完成步驟可點擊返回 */}
+        {stepIndex > 0 && (
+          <div className="flex gap-1.5 flex-wrap">
+            {STEP_ORDER.slice(0, stepIndex).map((step, idx) => (
+              <button
+                key={step}
+                onClick={() => setCurrentStep(step)}
+                className="flex items-center gap-1 text-[11px] text-primary/70 hover:text-primary transition-colors"
+              >
+                <CheckCircle2 className="w-3 h-3" />
+                {STEP_LABELS[step]}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Step: Form */}

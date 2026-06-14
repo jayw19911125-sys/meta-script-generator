@@ -285,7 +285,33 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             </DropdownMenu>
           </div>
         )}
-        <main className="flex-1 overflow-x-hidden overflow-y-auto">{children}</main>
+        <main className="flex-1 overflow-x-hidden overflow-y-auto pb-16 md:pb-0">{children}</main>
+
+        {/* 手機底部 Tab Bar */}
+        {isMobile && (
+          <nav className="fixed bottom-0 left-0 right-0 z-50 h-16 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-center">
+            {menuItems.map((item) => {
+              const isActive = location === item.path;
+              return (
+                <button
+                  key={item.path}
+                  onClick={() => setLocation(item.path)}
+                  className={`flex-1 flex flex-col items-center justify-center gap-1 h-full transition-colors ${
+                    isActive ? "text-primary" : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  <item.icon className={`h-5 w-5 ${ isActive ? "text-primary" : "text-muted-foreground" }`} />
+                  <span className={`text-[10px] font-medium leading-none ${ isActive ? "text-primary" : "" }`}>
+                    {item.label.replace("3-3-3 ", "")}
+                  </span>
+                  {isActive && (
+                    <span className="absolute bottom-0 w-6 h-0.5 rounded-full bg-primary" />
+                  )}
+                </button>
+              );
+            })}
+          </nav>
+        )}
       </SidebarInset>
     </>
   );

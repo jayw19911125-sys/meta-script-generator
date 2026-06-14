@@ -1,4 +1,5 @@
 import { Toaster } from "@/components/ui/sonner";
+import { useIsMobile } from "@/hooks/useMobile";
 import { Route, Switch } from "wouter";
 import DashboardLayout from "./components/DashboardLayout";
 import Home from "./pages/Home";
@@ -9,6 +10,7 @@ import SettingsPage from "@/pages/Settings";
 import NotFound from "./pages/NotFound";
 
 export default function App() {
+  const isMobile = useIsMobile();
   return (
     <>
       <DashboardLayout>
@@ -21,7 +23,7 @@ export default function App() {
           <Route component={NotFound} />
         </Switch>
       </DashboardLayout>
-      <Toaster richColors position="top-right" />
+      <Toaster richColors position={isMobile ? "bottom-center" : "top-right"} />
     </>
   );
 }
