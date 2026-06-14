@@ -21,7 +21,9 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+import { PENDING_APPROVAL_ERR_MSG } from "@shared/const";
+import { Grid3X3, History, LogOut, PanelLeft, Sparkles, Zap, Clock, Shield } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -85,6 +87,11 @@ export default function DashboardLayout({
         </div>
       </div>
     );
+  }
+
+  // 已登入但尚未審核
+  if (user.approved === false) {
+    return <PendingApprovalScreen name={user.name} />;
   }
 
   return (
@@ -242,5 +249,56 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
         <main className="flex-1 overflow-auto">{children}</main>
       </SidebarInset>
     </>
+  );
+}
+
+// ========== 等待審核畫面 ==========
+
+function PendingApprovalScreen({ name }: { name: string | null }) {
+  const logoutMutation = trpc.auth.logout.useMutation({
+    onSuccess: () => { window.location.href = "/"; },
+  });
+
+  return (
+    <div className="flex items-center justify-center min-h-screen bg-background">
+      <div className="flex flex-col items-center gap-6 p-8 max-w-sm w-full text-center">
+        {/* 圖示 */}
+        <div className="relative">
+          <div className="w-16 h-16 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center">
+            <Clock className="w-8 h-8 text-amber-400" />
+          </div>
+          <div className="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-background border border-border flex items-center justify-center">
+            <Shield className="w-3.5 h-3.5 text-muted-foreground" />
+          </div>
+        </div>
+
+        {/* 標題 */}
+        <div className="space-y-2">
+          <h1 className="text-xl font-semibold text-foreground">帳號待審核</h1>
+          <p className="text-sm text-muted-foreground leading-relaxed">
+            {name ? `${name}，你好。` : ""}
+            你的帳號已登入，正在等待管理員開通使用權限。
+          </p>
+          <p className="text-xs text-muted-foreground/60">
+            開通後即可直接使用，無需重新登入。
+          </p>
+        </div>
+
+        {/* 狀態列 */}
+        <div className="w-full rounded-lg border border-amber-500/20 bg-amber-500/5 px-4 py-3 flex items-center gap-3">
+          <div className="w-2 h-2 rounded-full bg-amber-400 animate-pulse shrink-0" />
+          <span className="text-xs text-amber-400/90">等待管理員審核中</span>
+        </div>
+
+        {/* 登出 */}
+        <button
+          onClick={() => logoutMutation.mutate()}
+          disabled={logoutMutation.isPending}
+          className="text-xs text-muted-foreground/50 hover:text-muted-foreground transition-colors"
+        >
+          登出
+        </button>
+      </div>
+    </div>
   );
 }

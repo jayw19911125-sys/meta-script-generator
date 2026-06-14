@@ -2,6 +2,7 @@ import { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 import type { Express, Request, Response } from "express";
 import * as db from "../db";
 import { getSessionCookieOptions } from "./cookies";
+import { notifyOwner } from "./notification";
 import { sdk } from "./sdk";
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -28,6 +29,9 @@ export function registerOAuthRoutes(app: Express) {
         return;
       }
 
+      const existingUser = await db.getUserByOpenId(userInfo.openId);
+      const isNewUser = !existingUser;
+
       await db.upsertUser({
         openId: userInfo.openId,
         name: userInfo.name || null,
@@ -35,6 +39,16 @@ export function registerOAuthRoutes(app: Express) {
         loginMethod: userInfo.loginMethod ?? userInfo.platform ?? null,
         lastSignedIn: new Date(),
       });
+
+      // 新用戶首次登入：通知 Owner 審核
+      if (isNewUser) {
+        const name = userInfo.name || "未命名";
+        const email = userInfo.email ? ` (${userInfo.email})` : "";
+        notifyOwner({
+          title: "👤 新用戶申請使用",
+          content: `${name}${email} 刚剛登入 Meta 腳本生成器，目前狀態：已審核（預設開放）。\n若需封鎖，請在資料庫將 approved 設為 0。`,
+        }).catch(() => { /* 通知失敗不影響登入流程 */ });
+      }
 
       const sessionToken = await sdk.createSessionToken(userInfo.openId, {
         name: userInfo.name || "",

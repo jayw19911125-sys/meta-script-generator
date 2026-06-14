@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { protectedProcedure, router } from "../_core/trpc";
+import { approvedProcedure, router } from "../_core/trpc";
 import { saveScriptToNotion } from "../notionWriteService";
 import type { NotionSaveInput } from "../notionWriteService";
 import { runPostSaveNotifications } from "../notifyService";
@@ -84,7 +84,7 @@ async function persist(
 
 export const scriptRouter = router({
   // ===== 完整雙引擎：發散引擎 → 整合引擎，並自動存庫 =====
-  generateDual: protectedProcedure
+  generateDual: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       meta: saveMetaSchema,
@@ -105,7 +105,7 @@ export const scriptRouter = router({
     }),
 
   // ===== 只跑發散引擎 Hook（重新發散，不存庫） =====
-  generateHooks: protectedProcedure
+  generateHooks: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       engineConfig: engineConfigSchema.optional(),
@@ -117,7 +117,7 @@ export const scriptRouter = router({
     }),
 
   // ===== 用既有 Hook 整合（claude / gpt / both），並自動存庫 =====
-  integrate: protectedProcedure
+  integrate: approvedProcedure
     .input(
       z.object({
         input: promptInputSchema,
@@ -171,7 +171,7 @@ export const scriptRouter = router({
     }),
 
   // ===== 一鍵存入 Notion B2 客戶腳本庫 =====
-  saveToNotion: protectedProcedure
+  saveToNotion: approvedProcedure
     .input(z.object({
       clientName: z.string().min(1, "客戶名稱不能為空"),
       projectType: z.string().min(1),
@@ -233,11 +233,11 @@ export const scriptRouter = router({
     }),
 
   // ===== 歷史紀錄 =====
-  history: protectedProcedure.query(({ ctx }) =>
+  history: approvedProcedure.query(({ ctx }) =>
     listScriptHistory(ctx.user.id)
   ),
 
-  deleteHistory: protectedProcedure
+  deleteHistory: approvedProcedure
     .input(z.object({ id: z.number().int().positive() }))
     .mutation(async ({ ctx, input }) => {
       await deleteScriptHistory(ctx.user.id, input.id);
@@ -256,7 +256,7 @@ import {
 
 export const matrixRouter = router({
   // Step 1: 產出 3 個 Hook
-  generateHooks: protectedProcedure
+  generateHooks: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       engineConfig: engineConfigSchema.optional(),
@@ -267,7 +267,7 @@ export const matrixRouter = router({
     }),
 
   // Step 2: 產出 3 個 Body
-  generateBodies: protectedProcedure
+  generateBodies: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       hooksJson: z.string(),
@@ -279,7 +279,7 @@ export const matrixRouter = router({
     }),
 
   // Step 3: 產出 3 個 CTA
-  generateCtas: protectedProcedure
+  generateCtas: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       bodiesJson: z.string(),
@@ -291,7 +291,7 @@ export const matrixRouter = router({
     }),
 
   // Step 4: AI 推薦與評分
-  generateRecommendations: protectedProcedure
+  generateRecommendations: approvedProcedure
     .input(z.object({
       input: promptInputSchema,
       matrixJson: z.string(),
@@ -303,7 +303,7 @@ export const matrixRouter = router({
     }),
 
   // 局部重跑：只重新生成指定卡片，回傳單一 ScriptModule
-  rerunCard: protectedProcedure
+  rerunCard: approvedProcedure
     .input(z.object({
       step: z.enum(["hook", "body", "cta"]),
       targetIndex: z.number().int().min(1).max(3),

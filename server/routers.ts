@@ -1,8 +1,12 @@
+import { z } from "zod";
 import { COOKIE_NAME } from "@shared/const";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { systemRouter } from "./_core/systemRouter";
-import { publicProcedure, router } from "./_core/trpc";
+import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import { scriptRouter, matrixRouter } from "./routers/script";
+import { getDb } from "./db";
+import { users } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
 
 export const appRouter = router({
   system: systemRouter,
@@ -16,6 +20,31 @@ export const appRouter = router({
   }),
   script: scriptRouter,
   matrix: matrixRouter,
+  admin: router({
+    /** 列出所有用戶（只有 admin 可用） */
+    listUsers: adminProcedure.query(async () => {
+      const db = await getDb();
+      if (!db) return [];
+      return db.select({
+        id: users.id,
+        name: users.name,
+        email: users.email,
+        approved: users.approved,
+        role: users.role,
+        createdAt: users.createdAt,
+        lastSignedIn: users.lastSignedIn,
+      }).from(users).orderBy(users.createdAt);
+    }),
+    /** 審核或封鎖用戶 */
+    setApproved: adminProcedure
+      .input(z.object({ userId: z.number(), approved: z.boolean() }))
+      .mutation(async ({ input }) => {
+        const db = await getDb();
+        if (!db) throw new Error("DB not available");
+        await db.update(users).set({ approved: input.approved }).where(eq(users.id, input.userId));
+        return { success: true };
+      }),
+  }),
 });
 
 export type AppRouter = typeof appRouter;
