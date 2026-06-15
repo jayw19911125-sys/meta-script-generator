@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useScriptExport } from "@/hooks/useScriptExport";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -41,7 +42,7 @@ export default function Home() {
 
   // Output state
   const [output, setOutput] = useState<string | null>(null);
-  const [copied, setCopied] = useState(false);
+  const { copied, copyScript, downloadScript } = useScriptExport();
   const [notionUrl, setNotionUrl] = useState<string | null>(null);
   const [notionSaved, setNotionSaved] = useState(false);
   // Notion 預覽視窗 state
@@ -104,27 +105,23 @@ export default function Home() {
     });
   };
 
-  const handleCopy = async () => {
-    if (!output) return;
-    await navigator.clipboard.writeText(output);
-    setCopied(true);
-    toast.success("已複製到剪貼簿");
-    setTimeout(() => setCopied(false), 2000);
-  };
-
+    const handleCopy = () => { if (output) copyScript(output); };
   const handleDownload = (format: "txt" | "md") => {
     if (!output) return;
-    const content = format === "md"
-      ? `# ${form.productName} 腳本\n\n**產業：** ${form.industry}\n**漏斗：** ${form.funnel}\n\n---\n\n${output}`
-      : output;
-    const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `${form.productName}_腳本.${format}`;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success(`已下載 ${format.toUpperCase()} 檔案`);
+    if (format === "txt") {
+      downloadScript(output, form.productName);
+    } else {
+      // MD 格式保留原有結構化輸出
+      const content = `# ${form.productName} 腳本\n\n**產業：** ${form.industry}\n**漏斗：** ${form.funnel}\n\n---\n\n${output}`;
+      const blob = new Blob([content], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `META腳本_${form.productName}.md`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("已下載 MD 檔案");
+    }
   };
 
   const isLoading = generateMutation.isPending;

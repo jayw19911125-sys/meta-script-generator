@@ -5,11 +5,20 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2 } from "lucide-react";
+import { useScriptExport } from "@/hooks/useScriptExport";
 
 export default function HistoryPage() {
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const utils = trpc.useUtils();
+  const { copied, copyScript, downloadScript } = useScriptExport();
+  const [copiedId, setCopiedId] = useState<number | null>(null);
+
+  const handleCopy = async (text: string, id: number) => {
+    await copyScript(text);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const { data: history, isLoading } = trpc.script.history.useQuery();
   const deleteMutation = trpc.script.deleteHistory.useMutation({
@@ -20,10 +29,7 @@ export default function HistoryPage() {
     onError: () => toast.error("刪除失敗"),
   });
 
-  const handleCopy = async (text: string) => {
-    await navigator.clipboard.writeText(text);
-    toast.success("已複製到剪貼簿");
-  };
+
 
   const engineLabel = (engine: string) => {
     const map: Record<string, string> = {
@@ -105,10 +111,22 @@ export default function HistoryPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => handleCopy(item.finalOutput)}
+                        onClick={() => handleCopy(item.finalOutput, item.id)}
                         className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        title="複製腳本"
                       >
-                        <Copy className="w-4 h-4" />
+                        {copiedId === item.id
+                          ? <CheckCircle2 className="w-4 h-4 text-green-500" />
+                          : <Copy className="w-4 h-4" />}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => downloadScript(item.finalOutput, item.productName ?? undefined)}
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        title="下載 TXT"
+                      >
+                        <FileDown className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
