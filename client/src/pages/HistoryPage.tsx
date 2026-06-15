@@ -101,31 +101,31 @@ export default function HistoryPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex items-center gap-1 shrink-0">
+                    <div className="flex items-center gap-0.5 shrink-0">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCopy(item.finalOutput)}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                       >
-                        <Copy className="w-3.5 h-3.5" />
+                        <Copy className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteMutation.mutate({ id: item.id })}
                         disabled={deleteMutation.isPending}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
                       >
-                        <Trash2 className="w-3.5 h-3.5" />
+                        <Trash2 className="w-4 h-4" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
                       >
-                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
                       </Button>
                     </div>
                   </div>
@@ -134,7 +134,7 @@ export default function HistoryPage() {
                   <>
                     <Separator className="bg-border/50" />
                     <CardContent className="pt-3 pb-4">
-                      <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-3 max-h-80 overflow-y-auto text-xs">
+                      <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-3 max-h-[40dvh] sm:max-h-80 overflow-y-auto text-xs">
                         {item.finalOutput}
                       </div>
                     </CardContent>

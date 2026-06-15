@@ -171,12 +171,12 @@ function StatCard({
     : "bg-card border-border";
 
   return (
-    <div className={`rounded-xl border p-4 space-y-1 ${bg}`}>
+    <div className={`rounded-xl border p-3 sm:p-4 space-y-1 ${bg}`}>
       <div className="flex items-center gap-1.5">
         {icon}
         <span className="text-xs text-muted-foreground">{label}</span>
       </div>
-      <p className="text-2xl font-semibold text-foreground tabular-nums">{value}</p>
+      <p className="text-xl sm:text-2xl font-semibold text-foreground tabular-nums">{value}</p>
     </div>
   );
 }
@@ -291,8 +291,9 @@ function UserRow({
       </div>
       {/* 下半行：Email + 加入時間 */}
       <div className="mt-1 pl-11">
-        <p className="text-xs text-muted-foreground truncate">
-          {user.email ?? "無 Email"} · 加入 {joinedAt} · 最後登入 {lastSeen}
+        <p className="text-xs text-muted-foreground truncate">{user.email ?? "無 Email"}</p>
+        <p className="text-xs text-muted-foreground/60 mt-0.5">
+          加入 {joinedAt}<span className="hidden sm:inline"> · 最後登入 {lastSeen}</span>
         </p>
       </div>
     </div>

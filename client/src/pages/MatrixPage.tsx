@@ -302,10 +302,10 @@ export default function MatrixPage() {
         {matrix.hooks.length > 0 && (
           <div className="flex items-center gap-2">
             <Button variant="outline" size="sm" onClick={() => handleExportMatrix("md")} className="h-8 text-xs border-border/50">
-              <Download className="w-3.5 h-3.5 mr-1" />MD
+              <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">MD</span><span className="sm:hidden">.md</span>
             </Button>
             <Button variant="outline" size="sm" onClick={() => handleExportMatrix("csv")} className="h-8 text-xs border-border/50">
-              <Download className="w-3.5 h-3.5 mr-1" />CSV
+              <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">CSV</span><span className="sm:hidden">.csv</span>
             </Button>
           </div>
         )}
@@ -376,13 +376,13 @@ export default function MatrixPage() {
 
       {/* Step: Form */}
       {currentStep === "form" && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Card className="bg-card border-border/50">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground">產品資訊</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">產品名稱 *</Label>
                   <Input placeholder="e.g. 膠原蛋白飲" value={form.productName}
@@ -416,7 +416,7 @@ export default function MatrixPage() {
               <CardTitle className="text-sm font-semibold text-foreground">腳本設定</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">漏斗層級 *</Label>
                   <Select value={form.funnel} onValueChange={v => setForm(f => ({ ...f, funnel: v }))}>
@@ -730,7 +730,7 @@ export default function MatrixPage() {
                   const b = matrix.bodies[rec.bodyIndex - 1];
                   const c = matrix.ctas[rec.ctaIndex - 1];
                   return (
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       {[
                         { label: "Hook", mod: h, color: "text-[oklch(0.72_0.19_35)]", bg: "bg-[oklch(0.72_0.19_35/0.06)]" },
                         { label: "Body", mod: b, color: "text-[oklch(0.65_0.22_280)]", bg: "bg-[oklch(0.65_0.22_280/0.06)]" },

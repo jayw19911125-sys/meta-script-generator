@@ -142,7 +142,7 @@ export default function Home() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         {/* Left: Form */}
         <div className="space-y-4">
           {/* Engine Preset */}
@@ -217,7 +217,7 @@ export default function Home() {
               <CardTitle className="text-sm font-semibold text-foreground">產品資訊</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">產品名稱 *</Label>
                   <Input
@@ -267,7 +267,7 @@ export default function Home() {
               <CardTitle className="text-sm font-semibold text-foreground">腳本設定</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">漏斗層級 *</Label>
                   <Select value={form.funnel} onValueChange={v => setForm(f => ({ ...f, funnel: v }))}>
@@ -353,12 +353,12 @@ export default function Home() {
 
         {/* Right: Output */}
         <div className="space-y-4">
-          <Card className="bg-card border-border/50 h-full min-h-[400px]">
+          <Card className="bg-card border-border/50 flex flex-col min-h-[400px]">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-sm font-semibold text-foreground">生成結果</CardTitle>
                 {output && (
-                  <div className="flex items-center gap-1 flex-wrap">
+                  <div className="flex items-center gap-0.5 flex-wrap">
                     <Button
                       variant="ghost"
                       size="sm"
@@ -439,7 +439,7 @@ export default function Home() {
                   </div>
                 </div>
               ) : output ? (
-                <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-4 max-h-[600px] overflow-y-auto">
+                <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-4 max-h-[50dvh] lg:max-h-[600px] overflow-y-auto">
                   {output}
                 </div>
               ) : (

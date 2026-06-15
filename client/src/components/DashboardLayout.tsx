@@ -198,7 +198,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     <Sparkles className="w-3.5 h-3.5 text-white" />
                   </div>
                   <span className="font-bold text-sm tracking-tight truncate text-gradient">
-                    Script Gen V2
+                    META 腳本生成器
                   </span>
                 </div>
               )}
@@ -279,7 +279,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                   <Sparkles className="w-3.5 h-3.5 text-white" />
                 </div>
                 <span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
-                  {activeMenuItem?.label ?? "Script Gen V2"}
+                  {(activeMenuItem?.label ?? "META 腳本生成器").replace("3-3-3 ", "")}
                 </span>
               </div>
             </div>
@@ -341,7 +341,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                     <item.icon className={`h-5 w-5 ${ isActive ? "text-primary" : "text-muted-foreground" }`} />
                   )}
                   <span className={`text-[10px] font-medium leading-none ${ isActive ? "text-primary" : "" }`}>
-                    {item.label.replace("3-3-3 ", "")}
+                    {item.label.replace(/^3-3-3\s/, "")}
                   </span>
                   {/* 歷史未讀 Badge */}
                   {isHistory && unreadCount > 0 && !isActive && (
