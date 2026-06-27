@@ -60,16 +60,21 @@ export default function HistoryPage() {
   const hasFilters = !!keyword || !!funnelFilter || !!dateFrom || !!dateTo;
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center shrink-0">
-          <History className="w-5 h-5 text-muted-foreground" />
+    <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
+      {/* Header — Linear 風格 */}
+      <div className="flex items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded border border-border bg-muted/50 flex items-center justify-center shrink-0">
+            <History className="w-3.5 h-3.5 text-muted-foreground" />
+          </div>
+          <div>
+            <h1 className="text-sm font-semibold text-foreground tracking-tight">歷史紀錄</h1>
+            <p className="text-[11px] text-muted-foreground font-mono hidden sm:block">script history · log</p>
+          </div>
         </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">歷史紀錄</h1>
-          <p className="text-sm text-muted-foreground">查看過去生成的腳本</p>
-        </div>
+        {history && history.length > 0 && (
+          <span className="text-[11px] text-muted-foreground font-mono">{history.length} records</span>
+        )}
       </div>
 
       {/* 搜尋列 */}
@@ -77,12 +82,12 @@ export default function HistoryPage() {
         {/* 第一行：關鍵字 + 漏斗篩選 + 清除 */}
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
+            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 pointer-events-none" />
             <Input
               placeholder="搜尋產品名稱、產業或腳本內容..."
               value={keyword}
               onChange={e => setKeyword(e.target.value)}
-              className="pl-9 pr-8 h-9 text-sm bg-input border-border/50"
+              className="pl-8 pr-8 h-8 text-xs bg-input border-border"
             />
             {keyword && (
               <button
@@ -94,7 +99,7 @@ export default function HistoryPage() {
             )}
           </div>
           <Select value={funnelFilter} onValueChange={setFunnelFilter}>
-            <SelectTrigger className="h-9 text-sm bg-input border-border/50 w-full sm:w-36">
+            <SelectTrigger className="h-8 text-xs bg-input border-border w-full sm:w-36">
               <SelectValue placeholder="全部漏斗" />
             </SelectTrigger>
             <SelectContent>
@@ -109,7 +114,7 @@ export default function HistoryPage() {
               variant="ghost"
               size="sm"
               onClick={() => { setKeyword(""); setFunnelFilter(""); setDateFrom(""); setDateTo(""); }}
-              className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
+              className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
             >
               <X className="w-3.5 h-3.5 mr-1" />清除篩選
             </Button>
@@ -117,12 +122,12 @@ export default function HistoryPage() {
         </div>
         {/* 第二行：日期範圍篩選 */}
         <div className="flex items-center gap-2">
-          <CalendarDays className="w-4 h-4 text-muted-foreground/60 shrink-0" />
+          <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
           <Input
             type="date"
             value={dateFrom}
             onChange={e => setDateFrom(e.target.value)}
-            className="h-9 text-sm bg-input border-border/50 w-full sm:w-40"
+            className="h-8 text-xs bg-input border-border w-full sm:w-40"
             title="開始日期"
           />
           <span className="text-xs text-muted-foreground shrink-0">至</span>
@@ -130,7 +135,7 @@ export default function HistoryPage() {
             type="date"
             value={dateTo}
             onChange={e => setDateTo(e.target.value)}
-            className="h-9 text-sm bg-input border-border/50 w-full sm:w-40"
+            className="h-8 text-xs bg-input border-border w-full sm:w-40"
             title="結束日期"
           />
         </div>
@@ -138,47 +143,47 @@ export default function HistoryPage() {
 
       {isLoading ? (
         <div className="flex items-center justify-center py-16">
-          <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+          <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
         </div>
       ) : !history || history.length === 0 ? (
-        <Card className="bg-card border-border/50">
+        <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <History className="w-10 h-10 text-muted-foreground/40" />
-            <p className="text-sm text-muted-foreground">
+            <History className="w-8 h-8 text-muted-foreground/30" />
+            <p className="text-xs text-muted-foreground">
               {hasFilters ? "找不到符合條件的紀錄" : "尚無歷史紀錄"}
             </p>
-            <p className="text-xs text-muted-foreground/60">
-              {hasFilters ? "試試其他關鍵字或清除篩選" : "生成腳本後會自動儲存在這裡"}
+            <p className="text-[11px] text-muted-foreground/60 font-mono">
+              {hasFilters ? "try other keywords or clear filters" : "scripts will be saved here automatically"}
             </p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-2">
           {history.map((item) => {
             const isExpanded = expandedId === item.id;
             const isShowingGpt = showGptId === item.id;
             return (
-              <Card key={item.id} className="bg-card border-border/50 overflow-hidden">
-                <CardHeader className="pb-2 pt-4">
+              <Card key={item.id} className="bg-card border-border overflow-hidden">
+                <CardHeader className="pb-2 pt-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <CardTitle className="text-sm font-semibold text-foreground truncate">
+                        <CardTitle className="text-xs font-semibold text-foreground truncate">
                           {item.productName}
                         </CardTitle>
                         <Badge
                           variant="outline"
-                          className={`text-xs shrink-0 ${engineColor(item.engine)}`}
+                          className={`text-[10px] shrink-0 ${engineColor(item.engine)}`}
                         >
                           {engineLabel(item.engine)}
                         </Badge>
                       </div>
-                      <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                        <span className="text-xs text-muted-foreground">{item.industry}</span>
-                        <span className="text-muted-foreground/40">·</span>
-                        <span className="text-xs text-muted-foreground">{item.funnel}</span>
-                        <span className="text-muted-foreground/40">·</span>
-                        <span className="text-xs text-muted-foreground">
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span className="text-[11px] text-muted-foreground font-mono">{item.industry}</span>
+                        <span className="text-muted-foreground/30 text-[10px]">·</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">{item.funnel}</span>
+                        <span className="text-muted-foreground/30 text-[10px]">·</span>
+                        <span className="text-[11px] text-muted-foreground font-mono">
                           {new Date(item.createdAt).toLocaleString("zh-TW", {
                             month: "2-digit",
                             day: "2-digit",
@@ -195,68 +200,68 @@ export default function HistoryPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => setShowGptId(isShowingGpt ? null : item.id)}
-                          className={`h-8 w-8 p-0 ${isShowingGpt ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
+                          className={`h-7 w-7 p-0 ${isShowingGpt ? 'text-primary' : 'text-muted-foreground hover:text-foreground'}`}
                           title="查看發散引擎原始版本"
                         >
-                          <GitCompare className="w-4 h-4" />
+                          <GitCompare className="w-3.5 h-3.5" />
                         </Button>
                       )}
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => handleCopy(item.finalOutput, item.id)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                         title="複製腳本"
                       >
                         {copiedId === item.id
-                          ? <CheckCircle2 className="w-4 h-4 text-green-500" />
-                          : <Copy className="w-4 h-4" />}
+                          ? <CheckCircle2 className="w-3.5 h-3.5 text-green-500" />
+                          : <Copy className="w-3.5 h-3.5" />}
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => downloadScript(item.finalOutput, item.productName ?? undefined)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                         title="下載 TXT"
                       >
-                        <FileDown className="w-4 h-4" />
+                        <FileDown className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => deleteMutation.mutate({ id: item.id })}
                         disabled={deleteMutation.isPending}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-destructive"
                       >
-                        <Trash2 className="w-4 h-4" />
+                        <Trash2 className="w-3.5 h-3.5" />
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setExpandedId(isExpanded ? null : item.id)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
                       >
-                        {isExpanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                        {isExpanded ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                       </Button>
                     </div>
                   </div>
                 </CardHeader>
                 {isExpanded && (
                   <>
-                    <Separator className="bg-border/50" />
+                    <Separator className="bg-border" />
                     <CardContent className="pt-3 pb-4 space-y-3">
                       {/* 整合版本（最終腳本） */}
                       <div>
-                        <p className="text-xs font-medium text-muted-foreground mb-1.5">✅ 整合版本（最終腳本）</p>
-                        <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-3 max-h-[40dvh] sm:max-h-80 overflow-y-auto text-xs">
+                        <p className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">整合版本 · final</p>
+                        <div className="script-output text-foreground/90 bg-background/50 rounded border border-border p-3 max-h-[40dvh] sm:max-h-80 overflow-y-auto text-xs">
                           {item.finalOutput}
                         </div>
                       </div>
                       {/* 發散版本（原始 Hook 草稿） */}
                       {isShowingGpt && item.gptOutput && (
                         <div>
-                          <p className="text-xs font-medium text-muted-foreground mb-1.5">🔀 發散版本（原始 Hook 草稿）</p>
-                          <div className="script-output text-foreground/70 bg-background/30 rounded-lg p-3 max-h-[30dvh] sm:max-h-60 overflow-y-auto text-xs border border-border/30">
+                          <p className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">發散版本 · draft</p>
+                          <div className="script-output text-foreground/70 bg-background/30 rounded border border-border p-3 max-h-[30dvh] sm:max-h-60 overflow-y-auto text-xs">
                             {item.gptOutput}
                           </div>
                         </div>

@@ -187,17 +187,17 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             <div className="flex items-center gap-3 px-2 w-full">
               <button
                 onClick={toggleSidebar}
-                className="h-8 w-8 flex items-center justify-center hover:bg-accent rounded-lg transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-ring shrink-0"
+                className="h-8 w-8 flex items-center justify-center hover:bg-secondary rounded-md transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring shrink-0"
                 aria-label="Toggle navigation"
               >
                 <PanelLeft className="h-4 w-4 text-muted-foreground" />
               </button>
               {!isCollapsed && (
                 <div className="flex items-center gap-2 min-w-0">
-                  <div className="w-6 h-6 rounded-md brand-gradient flex items-center justify-center shrink-0">
-                    <Sparkles className="w-3.5 h-3.5 text-white" />
+                  <div className="w-5 h-5 rounded border border-primary/40 bg-primary/10 flex items-center justify-center shrink-0">
+                    <Zap className="w-3 h-3 text-primary" />
                   </div>
-                  <span className="font-bold text-sm tracking-tight truncate text-gradient">
+                  <span className="font-semibold text-xs tracking-widest truncate text-foreground/70 font-mono uppercase">
                     META 腳本生成器
                   </span>
                 </div>
@@ -205,7 +205,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             </div>
           </SidebarHeader>
 
-          <SidebarContent className="gap-0 pt-2">
+          <SidebarContent className="py-1">
             <SidebarMenu className="px-2 py-1">
               {menuItems.map(item => {
                 const isActive = location === item.path;
@@ -215,10 +215,14 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
                       isActive={isActive}
                       onClick={() => setLocation(item.path)}
                       tooltip={item.label}
-                      className={`h-10 transition-all font-medium ${isActive ? "bg-primary/10 text-primary" : "hover:bg-accent/50"}`}
+                      className={`h-8 text-sm transition-colors font-medium rounded-md ${
+                        isActive
+                          ? "bg-secondary text-foreground border border-border"
+                          : "text-muted-foreground hover:text-foreground hover:bg-secondary/60 border border-transparent"
+                      }`}
                     >
-                      <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : "text-muted-foreground"}`} />
-                      <span>{item.label}</span>
+                      <item.icon className={`h-3.5 w-3.5 shrink-0 ${isActive ? "text-primary" : ""}`} />
+                      <span className="text-xs">{item.label.replace(/^3-3-3\s/, "")}</span>
                     </SidebarMenuButton>
                   </SidebarMenuItem>
                 );
@@ -226,12 +230,12 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             </SidebarMenu>
           </SidebarContent>
 
-          <SidebarFooter className="p-3 border-t border-border/50">
+          <SidebarFooter className="p-2 border-t border-border/30">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-accent/50 transition-colors w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-8 w-8 border border-border/50 shrink-0">
-                    <AvatarFallback className="text-xs font-semibold bg-primary/10 text-primary">
+                <button className="flex items-center gap-2.5 rounded-md px-2 py-1.5 hover:bg-secondary transition-colors w-full text-left focus:outline-none focus-visible:ring-1 focus-visible:ring-ring border border-transparent hover:border-border/50">
+                  <Avatar className="h-7 w-7 border border-border/50 shrink-0">
+                    <AvatarFallback className="text-[11px] font-semibold bg-primary/10 text-primary">
                       {user?.name?.charAt(0).toUpperCase() ?? "U"}
                     </AvatarFallback>
                   </Avatar>
@@ -271,15 +275,15 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
 
       <SidebarInset>
         {isMobile && (
-          <div className="flex border-b border-border/50 h-14 items-center justify-between bg-background/95 px-3 backdrop-blur supports-[backdrop-filter]:backdrop-blur sticky top-0 z-40">
-            <div className="flex items-center gap-2.5">
-              <SidebarTrigger className="h-9 w-9 rounded-lg shrink-0" />
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-md brand-gradient flex items-center justify-center shrink-0">
-                  <Sparkles className="w-3.5 h-3.5 text-white" />
+          <div className="flex border-b border-border h-12 items-center justify-between bg-background px-3 sticky top-0 z-40">
+            <div className="flex items-center gap-2">
+              <SidebarTrigger className="h-8 w-8 rounded-md shrink-0" />
+              <div className="flex items-center gap-1.5">
+                <div className="w-4 h-4 rounded border border-primary/40 bg-primary/10 flex items-center justify-center shrink-0">
+                  <Zap className="w-2.5 h-2.5 text-primary" />
                 </div>
-                <span className="font-semibold text-sm text-foreground truncate max-w-[140px]">
-                  {(activeMenuItem?.label ?? "META 腳本生成器").replace("3-3-3 ", "")}
+                <span className="font-mono text-[11px] font-semibold text-foreground/60 tracking-widest uppercase truncate max-w-[120px]">
+                  {(activeMenuItem?.label ?? "META").replace("3-3-3 ", "")}
                 </span>
               </div>
             </div>
@@ -314,7 +318,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
         {/* 手機底部 Tab Bar */}
         {isMobile && (
           <nav
-            className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:backdrop-blur flex items-start"
+            className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-background flex items-start"
             style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}
           >
             {menuItems.map((item) => {

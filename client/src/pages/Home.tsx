@@ -133,15 +133,17 @@ export default function Home() {
   const isLoading = generateMutation.isPending;
 
   return (
-    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-5xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center shrink-0">
-          <Zap className="w-5 h-5 text-white" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-foreground">快速出稿</h1>
-          <p className="text-sm text-muted-foreground">雙引擎 AI 生成 Meta 導購型短影音腳本</p>
+      <div className="flex items-center justify-between border-b border-border pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded border border-primary/30 bg-primary/8 flex items-center justify-center shrink-0">
+            <Zap className="w-3.5 h-3.5 text-primary" />
+          </div>
+          <div>
+            <h1 className="text-sm font-semibold text-foreground tracking-tight">快速出稿</h1>
+            <p className="text-[11px] text-muted-foreground font-mono">dual-engine · meta ads script</p>
+          </div>
         </div>
       </div>
 
@@ -149,7 +151,7 @@ export default function Home() {
         {/* Left: Form */}
         <div className="space-y-4">
           {/* Engine Preset */}
-          <Card className="bg-card border-border/50">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
@@ -180,7 +182,7 @@ export default function Home() {
                       className={`p-2.5 rounded-lg border text-left transition-all ${
                         isSelected
                           ? "border-primary bg-primary/10 text-primary"
-                          : "border-border/50 bg-card hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                          : "border-border bg-card hover:border-primary/50 text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <div className="text-xs font-semibold">{preset.label}</div>
@@ -227,7 +229,7 @@ export default function Home() {
           </Card>
 
           {/* Product Info */}
-          <Card className="bg-card border-border/50">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground">產品資訊</CardTitle>
             </CardHeader>
@@ -239,13 +241,13 @@ export default function Home() {
                     placeholder="e.g. 膠原蛋白飲"
                     value={form.productName}
                     onChange={e => setForm(f => ({ ...f, productName: e.target.value }))}
-                    className="h-9 text-sm bg-input border-border/50"
+                    className="h-8 text-sm bg-input border-border"
                   />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">產業 *</Label>
                   <Select value={form.industry} onValueChange={v => setForm(f => ({ ...f, industry: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50">
+                    <SelectTrigger className="h-8 text-sm bg-input border-border">
                       <SelectValue placeholder="選擇產業" />
                     </SelectTrigger>
                     <SelectContent>
@@ -260,7 +262,7 @@ export default function Home() {
                   placeholder="e.g. 日本專利配方、28天見效、素食膠囊"
                   value={form.sellingPoints}
                   onChange={e => setForm(f => ({ ...f, sellingPoints: e.target.value }))}
-                  className="text-sm bg-input border-border/50 resize-none"
+                  className="text-sm bg-input border-border resize-none"
                   rows={2}
                 />
               </div>
@@ -270,14 +272,14 @@ export default function Home() {
                   placeholder="e.g. 25-40 歲女性，注重保養，有消費力"
                   value={form.targetAudience}
                   onChange={e => setForm(f => ({ ...f, targetAudience: e.target.value }))}
-                  className="h-9 text-sm bg-input border-border/50"
+                  className="h-8 text-sm bg-input border-border"
                 />
               </div>
             </CardContent>
           </Card>
 
           {/* Script Settings */}
-          <Card className="bg-card border-border/50">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-semibold text-foreground">腳本設定</CardTitle>
             </CardHeader>
@@ -286,7 +288,7 @@ export default function Home() {
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">漏斗層級 *</Label>
                   <Select value={form.funnel} onValueChange={v => setForm(f => ({ ...f, funnel: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50">
+                    <SelectTrigger className="h-8 text-sm bg-input border-border">
                       <SelectValue placeholder="選擇漏斗" />
                     </SelectTrigger>
                     <SelectContent>
@@ -297,7 +299,7 @@ export default function Home() {
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">影片時長</Label>
                   <Select value={form.duration} onValueChange={v => setForm(f => ({ ...f, duration: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50">
+                    <SelectTrigger className="h-8 text-sm bg-input border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -308,7 +310,7 @@ export default function Home() {
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">出鏡方式</Label>
                   <Select value={form.appearance} onValueChange={v => setForm(f => ({ ...f, appearance: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50">
+                    <SelectTrigger className="h-8 text-sm bg-input border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -319,7 +321,7 @@ export default function Home() {
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">語氣風格</Label>
                   <Select value={form.tone} onValueChange={v => setForm(f => ({ ...f, tone: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50">
+                    <SelectTrigger className="h-8 text-sm bg-input border-border">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -350,7 +352,7 @@ export default function Home() {
           <Button
             onClick={handleSubmit}
             disabled={isLoading}
-            className="w-full h-11 brand-gradient text-white font-semibold text-sm shadow-lg hover:opacity-90 transition-opacity"
+            className="w-full h-9 bg-primary text-primary-foreground font-semibold text-xs tracking-wide hover:bg-primary/90 transition-colors active-scale border border-primary/80"
           >
             {isLoading ? (
               <>
@@ -368,10 +370,10 @@ export default function Home() {
 
         {/* Right: Output */}
         <div className="space-y-4">
-          <Card className="bg-card border-border/50 flex flex-col min-h-[400px]">
+          <Card className="bg-card border-border flex flex-col min-h-[400px]">
             <CardHeader className="pb-3">
               <div className="flex items-center justify-between">
-                <CardTitle className="text-sm font-semibold text-foreground">生成結果</CardTitle>
+                <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">生成結果</CardTitle>
                 {output && (
                   <div className="flex items-center gap-0.5 flex-wrap">
                     <Button

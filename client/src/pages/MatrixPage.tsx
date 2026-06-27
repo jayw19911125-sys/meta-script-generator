@@ -287,24 +287,24 @@ export default function MatrixPage() {
   const stepIndex = STEP_ORDER.indexOf(currentStep);
 
   return (
-    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-6">
+    <div className="p-4 md:p-6 max-w-6xl mx-auto space-y-5">
       {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl brand-gradient flex items-center justify-center shrink-0">
-            <Grid3X3 className="w-5 h-5 text-white" />
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border pb-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-7 h-7 rounded border border-primary/30 bg-primary/10 flex items-center justify-center shrink-0">
+            <Grid3X3 className="w-3.5 h-3.5 text-primary" />
           </div>
           <div>
-            <h1 className="text-xl font-bold text-foreground">3-3-3 矩陣生成</h1>
-            <p className="text-sm text-muted-foreground hidden sm:block">分步生成 Hook × Body × CTA 矩陣組合</p>
+            <h1 className="text-sm font-semibold text-foreground tracking-tight">3-3-3 矩陣生成</h1>
+            <p className="text-[11px] text-muted-foreground font-mono hidden sm:block">hook × body × cta · matrix</p>
           </div>
         </div>
         {matrix.hooks.length > 0 && (
           <div className="flex items-center gap-2">
-            <Button variant="outline" size="sm" onClick={() => handleExportMatrix("md")} className="h-8 text-xs border-border/50">
+            <Button variant="outline" size="sm" onClick={() => handleExportMatrix("md")} className="h-8 text-xs border-border">
               <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">MD</span><span className="sm:hidden">.md</span>
             </Button>
-            <Button variant="outline" size="sm" onClick={() => handleExportMatrix("csv")} className="h-8 text-xs border-border/50">
+            <Button variant="outline" size="sm" onClick={() => handleExportMatrix("csv")} className="h-8 text-xs border-border">
               <Download className="w-3.5 h-3.5 mr-1" /><span className="hidden sm:inline">CSV</span><span className="sm:hidden">.csv</span>
             </Button>
           </div>
@@ -377,9 +377,9 @@ export default function MatrixPage() {
       {/* Step: Form */}
       {currentStep === "form" && (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <Card className="bg-card border-border/50">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-foreground">產品資訊</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">產品資訊</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -387,12 +387,12 @@ export default function MatrixPage() {
                   <Label className="text-xs text-muted-foreground">產品名稱 *</Label>
                   <Input placeholder="e.g. 膠原蛋白飲" value={form.productName}
                     onChange={e => setForm(f => ({ ...f, productName: e.target.value }))}
-                    className="h-9 text-sm bg-input border-border/50" />
+                    className="h-8 text-sm bg-input border-border" />
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">產業 *</Label>
                   <Select value={form.industry} onValueChange={v => setForm(f => ({ ...f, industry: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50"><SelectValue placeholder="選擇產業" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm bg-input border-border"><SelectValue placeholder="選擇產業" /></SelectTrigger>
                     <SelectContent>{INDUSTRIES.map(i => <SelectItem key={i.value} value={i.value}>{i.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
@@ -401,53 +401,53 @@ export default function MatrixPage() {
                 <Label className="text-xs text-muted-foreground">核心賣點 *</Label>
                 <Textarea placeholder="e.g. 日本專利配方、28天見效" value={form.sellingPoints}
                   onChange={e => setForm(f => ({ ...f, sellingPoints: e.target.value }))}
-                  className="text-sm bg-input border-border/50 resize-none" rows={2} />
+                  className="text-sm bg-input border-border resize-none" rows={2} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">目標受眾 *</Label>
                 <Input placeholder="e.g. 25-40 歲女性，注重保養" value={form.targetAudience}
                   onChange={e => setForm(f => ({ ...f, targetAudience: e.target.value }))}
-                  className="h-9 text-sm bg-input border-border/50" />
+                  className="h-8 text-sm bg-input border-border" />
               </div>
             </CardContent>
           </Card>
-          <Card className="bg-card border-border/50">
+          <Card className="bg-card border-border">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-semibold text-foreground">腳本設定</CardTitle>
+              <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">腳本設定</CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">漏斗層級 *</Label>
                   <Select value={form.funnel} onValueChange={v => setForm(f => ({ ...f, funnel: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50"><SelectValue placeholder="選擇漏斗" /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm bg-input border-border"><SelectValue placeholder="選擇漏斗" /></SelectTrigger>
                     <SelectContent>{FUNNELS.map(f => <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">影片時長</Label>
                   <Select value={form.duration} onValueChange={v => setForm(f => ({ ...f, duration: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm bg-input border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>{DURATIONS.map(d => <SelectItem key={d.value} value={d.value}>{d.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">出鏡方式</Label>
                   <Select value={form.appearance} onValueChange={v => setForm(f => ({ ...f, appearance: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm bg-input border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>{APPEARANCES.map(a => <SelectItem key={a.value} value={a.value}>{a.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
                 <div className="space-y-1.5">
                   <Label className="text-xs text-muted-foreground">語氣風格</Label>
                   <Select value={form.tone} onValueChange={v => setForm(f => ({ ...f, tone: v }))}>
-                    <SelectTrigger className="h-9 text-sm bg-input border-border/50"><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-8 text-sm bg-input border-border"><SelectValue /></SelectTrigger>
                     <SelectContent>{TONES.map(t => <SelectItem key={t.value} value={t.value}>{t.label}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               </div>
               {/* 引擎設定 */}
-              <div className="border border-border/40 rounded-lg overflow-hidden">
+              <div className="border border-border rounded-lg overflow-hidden">
                 <button
                   onClick={() => setShowEngineConfig(v => !v)}
                   className="w-full flex items-center justify-between px-3 py-2 text-xs text-muted-foreground hover:text-foreground hover:bg-muted/30 transition-colors"
@@ -462,7 +462,7 @@ export default function MatrixPage() {
                   {showEngineConfig ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
                 </button>
                 {showEngineConfig && (
-                  <div className="px-3 pb-3 space-y-4 border-t border-border/30 pt-3">
+                  <div className="px-3 pb-3 space-y-4 border-t border-border pt-3">
                     <MatrixEngineSlot
                       label="發散引擎（Hook 生成）"
                       vendor={engineConfig.scatterVendor}
@@ -490,7 +490,7 @@ export default function MatrixPage() {
 
               <div className="pt-2">
                 <Button onClick={handleGenerateHooks} disabled={isAnyLoading}
-                  className="w-full h-11 brand-gradient text-white font-semibold text-sm">
+                  className="w-full h-9 bg-primary text-primary-foreground font-semibold text-xs tracking-wide hover:bg-primary/90 border border-primary/80">
                   {hooksMutation.isPending ? (
                     <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成 Hook 中...</>
                   ) : (
@@ -519,7 +519,7 @@ export default function MatrixPage() {
           />
           <div className="flex justify-end">
             <Button onClick={handleGenerateBodies} disabled={isAnyLoading}
-              className="brand-gradient text-white font-semibold">
+              className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
               {bodiesMutation.isPending ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成 Body 中...</>
               ) : (
@@ -545,11 +545,11 @@ export default function MatrixPage() {
             onRerun={handleRerunBody}
           />
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep("hooks")} className="border-border/50">
+            <Button variant="outline" onClick={() => setCurrentStep("hooks")} className="border-border">
               ← 回到 Hook
             </Button>
             <Button onClick={handleGenerateCtas} disabled={isAnyLoading}
-              className="brand-gradient text-white font-semibold">
+              className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
               {ctasMutation.isPending ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />生成 CTA 中...</>
               ) : (
@@ -575,11 +575,11 @@ export default function MatrixPage() {
             onRerun={handleRerunCta}
           />
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep("bodies")} className="border-border/50">
+            <Button variant="outline" onClick={() => setCurrentStep("bodies")} className="border-border">
               ← 回到 Body
             </Button>
             <Button onClick={handleGenerateRecommendations} disabled={isAnyLoading}
-              className="brand-gradient text-white font-semibold">
+              className="bg-primary text-primary-foreground font-semibold hover:bg-primary/90">
               {recsMutation.isPending ? (
                 <><Loader2 className="w-4 h-4 mr-2 animate-spin" />AI 評分中...</>
               ) : (
@@ -603,15 +603,15 @@ export default function MatrixPage() {
                 className={`bg-card border cursor-pointer transition-all ${
                   selectedRec === idx
                     ? "border-primary glow-orange"
-                    : "border-border/50 hover:border-primary/50"
+                    : "border-border hover:border-primary/50"
                 }`}
               >
                 <CardHeader className="pb-2">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-2">
                       {rec.rank === 1 && <Trophy className="w-4 h-4 text-yellow-400" />}
-                      <CardTitle className="text-sm font-semibold text-foreground">
-                        第 {rec.rank} 名
+                      <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">
+                        rank {rec.rank}
                       </CardTitle>
                     </div>
                     <div className="flex items-center gap-1">
@@ -630,7 +630,7 @@ export default function MatrixPage() {
                 <CardContent className="pt-0">
                   <p className="text-xs text-muted-foreground leading-relaxed">{rec.reason}</p>
                   {rec.checklistNotes && (
-                    <div className="mt-2 p-2 rounded-md bg-background/50 border border-border/30">
+                    <div className="mt-2 p-2 rounded-md bg-background/50 border border-border">
                       <p className="text-xs text-muted-foreground/80 leading-relaxed">{rec.checklistNotes}</p>
                     </div>
                   )}
@@ -641,12 +641,12 @@ export default function MatrixPage() {
 
           {/* Quick Script Output */}
           {matrix.recommendations.length > 0 && (
-            <Card className="bg-card border-border/50">
+            <Card className="bg-card border-border">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
-                  <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-primary" />
-                    快速出稿 — 第 {matrix.recommendations[selectedRec]?.rank} 名組合
+                  <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono flex items-center gap-2">
+                    <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    快速出稿 · rank {matrix.recommendations[selectedRec]?.rank}
                   </CardTitle>
                   <div className="flex items-center gap-2">
                     <Button
@@ -741,7 +741,7 @@ export default function MatrixPage() {
                         <div key={label} className={`${bg} rounded-lg p-3 space-y-2`}>
                           <div className={`text-xs font-bold ${color}`}>{label}</div>
                           <p className="text-sm text-foreground leading-relaxed">{mod.text}</p>
-                          <div className="space-y-1 pt-1 border-t border-border/30">
+                          <div className="space-y-1 pt-1 border-t border-border">
                             <p className="text-xs text-muted-foreground">📷 {mod.shotDirection}</p>
                             <p className="text-xs text-muted-foreground">🎵 {mod.soundEffect}</p>
                             <p className="text-xs text-muted-foreground">🎬 {mod.performanceNote}</p>
@@ -756,7 +756,7 @@ export default function MatrixPage() {
           )}
 
           <div className="flex justify-between">
-            <Button variant="outline" onClick={() => setCurrentStep("ctas")} className="border-border/50">
+            <Button variant="outline" onClick={() => setCurrentStep("ctas")} className="border-border">
               ← 回到 CTA
             </Button>
             <Button
@@ -765,7 +765,7 @@ export default function MatrixPage() {
                 setCurrentStep("form");
                 setMatrix({ hooks: [], bodies: [], ctas: [], recommendations: [] });
               }}
-              className="border-border/50"
+              className="border-border"
             >
               <RefreshCw className="w-4 h-4 mr-2" />重新開始
             </Button>
@@ -775,7 +775,7 @@ export default function MatrixPage() {
 
       {/* Notion 預覽存入視窗 */}
       <Dialog open={notionPreviewOpen} onOpenChange={setNotionPreviewOpen}>
-        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl max-h-[90dvh] flex flex-col overflow-y-auto bg-[oklch(0.15_0.02_240)] border-border/40">
+        <DialogContent className="w-[calc(100vw-2rem)] max-w-xl max-h-[90dvh] flex flex-col overflow-y-auto bg-[oklch(0.15_0.02_240)] border-border">
           <DialogHeader>
             <DialogTitle className="text-base font-semibold flex items-center gap-2">
               <Eye className="w-4 h-4 text-primary" />
@@ -790,7 +790,7 @@ export default function MatrixPage() {
               <Input
                 value={notionPreviewTitle}
                 onChange={(e) => setNotionPreviewTitle(e.target.value)}
-                className="text-sm bg-muted/30 border-border/40 h-8"
+                className="text-sm bg-muted/30 border-border h-8"
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -798,14 +798,14 @@ export default function MatrixPage() {
               <Input
                 value={notionPreviewNote}
                 onChange={(e) => setNotionPreviewNote(e.target.value)}
-                className="text-sm bg-muted/30 border-border/40 h-8"
+                className="text-sm bg-muted/30 border-border h-8"
                 placeholder="例：第一次測試、客戶 A 用"
               />
             </div>
 
             {/* 組合摘要 */}
             {notionPreviewPayload && (
-              <div className="rounded-md bg-muted/20 border border-border/30 p-3 text-xs text-muted-foreground space-y-1">
+              <div className="rounded-md bg-muted/20 border border-border p-3 text-xs text-muted-foreground space-y-1">
                 <p><span className="text-foreground/70">產品：</span>{notionPreviewPayload.productName}</p>
                 <p><span className="text-foreground/70">漏斗：</span>{notionPreviewPayload.funnel}</p>
                 <p><span className="text-foreground/70">推薦組合：</span>{notionPreviewPayload.rankLabel} （評分 {notionPreviewPayload.score}）</p>
@@ -814,7 +814,7 @@ export default function MatrixPage() {
             )}
           </div>
 
-          <DialogFooter className="flex gap-2 pt-2 border-t border-border/30">
+          <DialogFooter className="flex gap-2 pt-2 border-t border-border">
             <Button variant="ghost" size="sm" onClick={() => setNotionPreviewOpen(false)} className="text-muted-foreground">
               取消
             </Button>
@@ -831,7 +831,7 @@ export default function MatrixPage() {
                   onSuccess: () => setNotionPreviewOpen(false),
                 });
               }}
-              className="brand-gradient text-black font-medium"
+              className="bg-primary text-primary-foreground font-medium hover:bg-primary/90"
             >
               {saveToNotionMutation.isPending
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />存入中...</>
@@ -872,8 +872,8 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
             isRerunning
               ? "border-primary/60 shadow-[0_0_0_2px_oklch(0.65_0.22_150/0.25)] scale-[1.01]"
               : isOtherRunning
-              ? "border-border/30 opacity-50"
-              : "border-border/50 hover:border-border/80",
+              ? "border-border opacity-50"
+              : "border-border hover:border-border/80",
           ].join(" ")}
         >
           <CardHeader className="pb-2">
@@ -949,7 +949,7 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
                 value={notes[mod.id] ?? ""}
                 onChange={e => onNoteChange(mod.id, e.target.value)}
                 disabled={isRerunning}
-                className="text-xs bg-input border-border/30 resize-none h-14"
+                className="text-xs bg-input border-border resize-none h-14"
               />
             </div>
           </CardContent>
@@ -988,7 +988,7 @@ function MatrixEngineSlot({ label, vendor, model, onVendorChange, onModelChange 
               "flex-1 h-7 rounded-md text-xs font-medium border transition-all",
               vendor === v
                 ? "bg-primary/15 border-primary/50 text-primary"
-                : "bg-transparent border-border/40 text-muted-foreground hover:border-border/70 hover:text-foreground",
+                : "bg-transparent border-border text-muted-foreground hover:border-border/70 hover:text-foreground",
             ].join(" ")}
           >
             {v === "gpt" ? "GPT" : "Claude"}
@@ -1006,7 +1006,7 @@ function MatrixEngineSlot({ label, vendor, model, onVendorChange, onModelChange 
               "flex items-center justify-between rounded px-2.5 py-1.5 text-left border transition-all",
               model === m.value
                 ? "bg-primary/10 border-primary/40 text-foreground"
-                : "bg-transparent border-border/20 text-muted-foreground hover:border-border/50 hover:text-foreground",
+                : "bg-transparent border-border/20 text-muted-foreground hover:border-border hover:text-foreground",
             ].join(" ")}
           >
             <div className="flex items-center gap-1.5">
