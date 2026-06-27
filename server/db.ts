@@ -1,4 +1,4 @@
-import { and, desc, eq } from "drizzle-orm";
+import { and, desc, eq, like, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -63,10 +63,29 @@ export async function insertScriptHistory(record: InsertScriptHistory): Promise<
   return typeof insertId === "number" ? insertId : null;
 }
 
-export async function listScriptHistory(userId: number, limit = 50) {
+export async function listScriptHistory(
+  userId: number,
+  limit = 50,
+  opts?: { keyword?: string; funnel?: string }
+) {
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot list script history: database not available"); return []; }
-  return db.select().from(scriptHistory).where(eq(scriptHistory.userId, userId)).orderBy(desc(scriptHistory.createdAt)).limit(limit);
+  const conditions = [eq(scriptHistory.userId, userId)];
+  if (opts?.keyword) {
+    const kw = `%${opts.keyword}%`;
+    conditions.push(or(
+      like(scriptHistory.productName, kw),
+      like(scriptHistory.industry, kw),
+      like(scriptHistory.finalOutput, kw)
+    )!);
+  }
+  if (opts?.funnel) {
+    conditions.push(eq(scriptHistory.funnel, opts.funnel));
+  }
+  return db.select().from(scriptHistory)
+    .where(and(...conditions))
+    .orderBy(desc(scriptHistory.createdAt))
+    .limit(limit);
 }
 
 export async function deleteScriptHistory(userId: number, id: number): Promise<void> {

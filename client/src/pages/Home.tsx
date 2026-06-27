@@ -45,6 +45,8 @@ export default function Home() {
   const { copied, copyScript, downloadScript } = useScriptExport();
   const [notionUrl, setNotionUrl] = useState<string | null>(null);
   const [notionSaved, setNotionSaved] = useState(false);
+  const [knowledgeHit, setKnowledgeHit] = useState<{ funnel: boolean; hook: boolean; methodology: boolean } | null>(null);
+  const [quality, setQuality] = useState<{ estimatedSeconds: number; hookStrength: number; ctaClarity: number } | null>(null);
   // Notion 預覽視窗 state
   const [notionPreviewOpen, setNotionPreviewOpen] = useState(false);
   const [notionPreviewTitle, setNotionPreviewTitle] = useState("");
@@ -69,11 +71,14 @@ export default function Home() {
 
   const generateMutation = trpc.script.generateDual.useMutation({
     onMutate: () => { setIsGenerating(true); },
-    onSuccess: (data: { finalOutput: string; gptOutput: string; historyId: number | null }) => {
+    onSuccess: (data: { finalOutput: string; gptOutput: string; historyId: number | null; knowledgeHit?: { funnel: boolean; hook: boolean; methodology: boolean }; quality?: { estimatedSeconds: number; hookStrength: number; ctaClarity: number } }) => {
       setIsGenerating(false);
       setOutput(data.finalOutput);
       setNotionSaved(false);
       setNotionUrl(null);
+      setKnowledgeHit(data.knowledgeHit ?? null);
+      setQuality(data.quality ?? null);
+      navigator.vibrate?.(200);
       toast.success("腳本生成完成！");
     },
     onError: (err: { message: string }) => {
@@ -422,6 +427,31 @@ export default function Home() {
                 )}
               </div>
             </CardHeader>
+            {/* 品質指標列 */}
+            {output && quality && (
+              <div className="px-4 py-2 flex flex-wrap items-center gap-3 border-b border-border/40 bg-background/30">
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>✅ 預估秒數</span>
+                  <span className="font-semibold text-foreground">{quality.estimatedSeconds}s</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>🎯 Hook 強度</span>
+                  <span className="font-semibold text-foreground">{quality.hookStrength}/5</span>
+                </div>
+                <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+                  <span>📣 CTA 明確度</span>
+                  <span className="font-semibold text-foreground">{quality.ctaClarity}/5</span>
+                </div>
+                {knowledgeHit && (
+                  <div className="flex items-center gap-1 ml-auto">
+                    <span className="text-xs text-muted-foreground/60">知識庫：</span>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${knowledgeHit.funnel ? 'border-emerald-500/50 text-emerald-400' : 'border-border/40 text-muted-foreground/50'}`}>漏斗</Badge>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${knowledgeHit.hook ? 'border-emerald-500/50 text-emerald-400' : 'border-border/40 text-muted-foreground/50'}`}>Hook</Badge>
+                    <Badge variant="outline" className={`text-[10px] px-1.5 py-0 ${knowledgeHit.methodology ? 'border-emerald-500/50 text-emerald-400' : 'border-border/40 text-muted-foreground/50'}`}>方法論</Badge>
+                  </div>
+                )}
+              </div>
+            )}
             <Separator className="bg-border/50" />
             <CardContent className="pt-4">
               {isLoading ? (

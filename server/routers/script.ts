@@ -92,7 +92,7 @@ export const scriptRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       const config = input.engineConfig ?? DEFAULT_CONFIG;
-      const { gptOutput, finalOutput } = await runDualEngine(input.input, config);
+      const { gptOutput, finalOutput, knowledgeHit, quality } = await runDualEngine(input.input, config);
       const historyId = await persist(
         ctx.user.id,
         input.meta,
@@ -101,7 +101,7 @@ export const scriptRouter = router({
         finalOutput,
         input.input
       );
-      return { gptOutput, finalOutput, historyId };
+      return { gptOutput, finalOutput, historyId, knowledgeHit, quality };
     }),
 
   // ===== 只跑發散引擎 Hook（重新發散，不存庫） =====
@@ -233,9 +233,14 @@ export const scriptRouter = router({
     }),
 
   // ===== 歷史紀錄 =====
-  history: approvedProcedure.query(({ ctx }) =>
-    listScriptHistory(ctx.user.id)
-  ),
+  history: approvedProcedure
+    .input(z.object({
+      keyword: z.string().optional(),
+      funnel: z.string().optional(),
+    }).optional())
+    .query(({ ctx, input }) =>
+      listScriptHistory(ctx.user.id, 50, input ?? {})
+    ),
 
   deleteHistory: approvedProcedure
     .input(z.object({ id: z.number().int().positive() }))

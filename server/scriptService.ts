@@ -158,19 +158,59 @@ export async function integrateWithGpt(
   return text;
 }
 
+/** 從腳本文字估算品質指標 */
+function estimateQuality(text: string): {
+  estimatedSeconds: number;
+  hookStrength: number;
+  ctaClarity: number;
+} {
+  // 估算秒數：台灣口語約每分鐘 240 字
+  const charCount = text.replace(/\s+/g, '').length;
+  const estimatedSeconds = Math.round((charCount / 240) * 60);
+  // Hook 強度：前 100 字是否含疑問句、數字、情緒詞
+  const hookText = text.slice(0, 100);
+  const hookSignals = [
+    /[？?！!]/.test(hookText),
+    /\d+/.test(hookText),
+    /免費|限時|獨家|秘密|真相|驚|爆|必看|不要|停止/.test(hookText),
+    hookText.length > 20,
+  ];
+  const hookStrength = Math.min(5, hookSignals.filter(Boolean).length + 1);
+  // CTA 明確度：結尾 100 字是否含行動詞
+  const ctaText = text.slice(-100);
+  const ctaSignals = [
+    /點擊|立即|現在|馬上|加入|購買|訂閱|連結|私訊|留言|下方/.test(ctaText),
+    /連結在|點下方|按這裡|掃描|QR/.test(ctaText),
+    /限時|今天|只有|最後/.test(ctaText),
+  ];
+  const ctaClarity = Math.min(5, ctaSignals.filter(Boolean).length + 1);
+  return { estimatedSeconds, hookStrength, ctaClarity };
+}
+
 /**
  * 完整雙引擎流程：發散引擎 → 整合引擎。
  * 回傳 hook 草稿與最終整合腳本，供前端顯示與存庫。
- * v3.0：支援 EngineConfig 動態配置，兩個引擎共用同一次 Notion 快取。
+ * v3.2：加入知識庫命中狀態 + 品質評分回傳。
  */
 export async function runDualEngine(
   input: PromptInput,
   config: EngineConfig = DEFAULT_ENGINE_CONFIG
-): Promise<{ gptOutput: string; finalOutput: string }> {
+): Promise<{
+  gptOutput: string;
+  finalOutput: string;
+  knowledgeHit: { funnel: boolean; hook: boolean; methodology: boolean };
+  quality: { estimatedSeconds: number; hookStrength: number; ctaClarity: number };
+}> {
   const { scatterVendor, scatterModel, integrateVendor, integrateModel } = config;
 
   // v3.1：預先取得 L 系列框架 + A3 Hook 數據 + H 系列方法論，兩個引擎共用，避免重複呼叫 Notion
   const { lFramework, hookKnowledgeText, methodologySummary } = await getNotionKnowledge(input.funnel, input.industry);
+  // 知識庫命中狀態
+  const knowledgeHit = {
+    funnel: lFramework !== null,
+    hook: !!hookKnowledgeText,
+    methodology: !!methodologySummary,
+  };
 
   // Step 1：發散引擎（注入 L 系列 + A3 Hook 數據）
   const scatterResult = await invokeLLM({
@@ -200,7 +240,8 @@ export async function runDualEngine(
     throw new Error(`整合引擎（${integrateModel}）回傳空內容，請重試`);
   }
 
-  return { gptOutput, finalOutput };
+  const quality = estimateQuality(finalOutput);
+  return { gptOutput, finalOutput, knowledgeHit, quality };
 }
 
 // ========== 3-3-3 矩陣分步生成系統 (Phase 4) ==========
