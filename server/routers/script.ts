@@ -237,6 +237,8 @@ export const scriptRouter = router({
     .input(z.object({
       keyword: z.string().optional(),
       funnel: z.string().optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
     }).optional())
     .query(({ ctx, input }) =>
       listScriptHistory(ctx.user.id, 50, input ?? {})

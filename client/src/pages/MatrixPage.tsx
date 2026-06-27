@@ -594,7 +594,9 @@ export default function MatrixPage() {
       {currentStep === "recommendations" && (
         <div className="space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {matrix.recommendations.map((rec, idx) => (
+            {[...matrix.recommendations]
+              .sort((a, b) => (b.score ?? 0) - (a.score ?? 0))
+              .map((rec, idx) => (
               <Card
                 key={idx}
                 onClick={() => setSelectedRec(idx)}

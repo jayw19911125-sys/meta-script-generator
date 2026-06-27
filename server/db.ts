@@ -1,4 +1,4 @@
-import { and, desc, eq, like, or } from "drizzle-orm";
+import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -66,7 +66,7 @@ export async function insertScriptHistory(record: InsertScriptHistory): Promise<
 export async function listScriptHistory(
   userId: number,
   limit = 50,
-  opts?: { keyword?: string; funnel?: string }
+  opts?: { keyword?: string; funnel?: string; dateFrom?: string; dateTo?: string }
 ) {
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot list script history: database not available"); return []; }
@@ -81,6 +81,18 @@ export async function listScriptHistory(
   }
   if (opts?.funnel) {
     conditions.push(eq(scriptHistory.funnel, opts.funnel));
+  }
+  if (opts?.dateFrom) {
+    const fromDate = new Date(opts.dateFrom);
+    if (!isNaN(fromDate.getTime())) conditions.push(gte(scriptHistory.createdAt, fromDate));
+  }
+  if (opts?.dateTo) {
+    // dateTo 包含當天：加到当天結束 23:59:59
+    const toDate = new Date(opts.dateTo);
+    if (!isNaN(toDate.getTime())) {
+      toDate.setHours(23, 59, 59, 999);
+      conditions.push(lte(scriptHistory.createdAt, toDate));
+    }
   }
   return db.select().from(scriptHistory)
     .where(and(...conditions))

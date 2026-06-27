@@ -16,8 +16,9 @@ import {
   GPT_MODELS, CLAUDE_MODELS,
   type EngineConfig, type PromptInput, type EngineVendor,
 } from "@shared/scriptTypes";
-import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye } from "lucide-react";
+import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye, Info } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGenerating } from "@/components/DashboardLayout";
 
 type PresetKey = "premium" | "standard" | "lite";
@@ -153,6 +154,18 @@ export default function Home() {
               <CardTitle className="text-sm font-semibold text-foreground flex items-center gap-2">
                 <Sparkles className="w-4 h-4 text-primary" />
                 引擎配置
+                <TooltipProvider delayDuration={200}>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="w-3.5 h-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-[220px] text-xs leading-relaxed">
+                      <p className="font-semibold mb-1">雙引擎架構</p>
+                      <p><span className="text-orange-400">發散引擎（GPT）</span>：負責生成多樣化 Hook，廣泛探索創意方向</p>
+                      <p className="mt-1"><span className="text-violet-400">整合引擎（Claude）</span>：負責 Body + CTA + 品質評分，確保邏輯一致與導購力</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3">

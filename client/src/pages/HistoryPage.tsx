@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays } from "lucide-react";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
 
@@ -16,6 +16,8 @@ export default function HistoryPage() {
   const [showGptId, setShowGptId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState("");
   const [funnelFilter, setFunnelFilter] = useState("");
+  const [dateFrom, setDateFrom] = useState("");
+  const [dateTo, setDateTo] = useState("");
   const deferredKeyword = useDeferredValue(keyword);
   const utils = trpc.useUtils();
   const { copyScript, downloadScript } = useScriptExport();
@@ -28,7 +30,7 @@ export default function HistoryPage() {
   };
 
   const { data: history, isLoading } = trpc.script.history.useQuery(
-    { keyword: deferredKeyword || undefined, funnel: funnelFilter || undefined }
+    { keyword: deferredKeyword || undefined, funnel: funnelFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
   );
 
   const deleteMutation = trpc.script.deleteHistory.useMutation({
@@ -55,7 +57,7 @@ export default function HistoryPage() {
     return "bg-green-500/10 text-green-400 border-green-500/30";
   };
 
-  const hasFilters = !!keyword || !!funnelFilter;
+  const hasFilters = !!keyword || !!funnelFilter || !!dateFrom || !!dateTo;
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-6">
@@ -71,45 +73,67 @@ export default function HistoryPage() {
       </div>
 
       {/* 搜尋列 */}
-      <div className="flex flex-col sm:flex-row gap-2">
-        <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
-          <Input
-            placeholder="搜尋產品名稱、產業或腳本內容..."
-            value={keyword}
-            onChange={e => setKeyword(e.target.value)}
-            className="pl-9 pr-8 h-9 text-sm bg-input border-border/50"
-          />
-          {keyword && (
-            <button
-              onClick={() => setKeyword("")}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+      <div className="flex flex-col gap-2">
+        {/* 第一行：關鍵字 + 漏斗篩選 + 清除 */}
+        <div className="flex flex-col sm:flex-row gap-2">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground/60 pointer-events-none" />
+            <Input
+              placeholder="搜尋產品名稱、產業或腳本內容..."
+              value={keyword}
+              onChange={e => setKeyword(e.target.value)}
+              className="pl-9 pr-8 h-9 text-sm bg-input border-border/50"
+            />
+            {keyword && (
+              <button
+                onClick={() => setKeyword("")}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
+          </div>
+          <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+            <SelectTrigger className="h-9 text-sm bg-input border-border/50 w-full sm:w-36">
+              <SelectValue placeholder="全部漏斗" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="">全部漏斗</SelectItem>
+              {FUNNELS.map(f => (
+                <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          {hasFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => { setKeyword(""); setFunnelFilter(""); setDateFrom(""); setDateTo(""); }}
+              className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
             >
-              <X className="w-3.5 h-3.5" />
-            </button>
+              <X className="w-3.5 h-3.5 mr-1" />清除篩選
+            </Button>
           )}
         </div>
-        <Select value={funnelFilter} onValueChange={setFunnelFilter}>
-          <SelectTrigger className="h-9 text-sm bg-input border-border/50 w-full sm:w-36">
-            <SelectValue placeholder="全部漏斗" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="">全部漏斗</SelectItem>
-            {FUNNELS.map(f => (
-              <SelectItem key={f.value} value={f.value}>{f.label}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-        {hasFilters && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => { setKeyword(""); setFunnelFilter(""); }}
-            className="h-9 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
-          >
-            <X className="w-3.5 h-3.5 mr-1" />清除篩選
-          </Button>
-        )}
+        {/* 第二行：日期範圍篩選 */}
+        <div className="flex items-center gap-2">
+          <CalendarDays className="w-4 h-4 text-muted-foreground/60 shrink-0" />
+          <Input
+            type="date"
+            value={dateFrom}
+            onChange={e => setDateFrom(e.target.value)}
+            className="h-9 text-sm bg-input border-border/50 w-full sm:w-40"
+            title="開始日期"
+          />
+          <span className="text-xs text-muted-foreground shrink-0">至</span>
+          <Input
+            type="date"
+            value={dateTo}
+            onChange={e => setDateTo(e.target.value)}
+            className="h-9 text-sm bg-input border-border/50 w-full sm:w-40"
+            title="結束日期"
+          />
+        </div>
       </div>
 
       {isLoading ? (
