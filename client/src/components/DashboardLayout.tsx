@@ -73,8 +73,8 @@ export default function DashboardLayout({
       <div className="flex items-center justify-center min-h-screen bg-background">
         <div className="flex flex-col items-center gap-8 p-8 max-w-sm w-full text-center">
           {/* Logo */}
-          <div className="w-20 h-20 rounded-2xl brand-gradient flex items-center justify-center shadow-lg shadow-primary/30">
-            <Sparkles className="w-10 h-10 text-white" />
+          <div className="w-14 h-14 rounded border border-border bg-muted/50 flex items-center justify-center">
+            <Sparkles className="w-7 h-7 text-primary" />
           </div>
 
           {/* Title */}
@@ -97,9 +97,9 @@ export default function DashboardLayout({
           <Button
             onClick={() => { window.location.href = getLoginUrl(); }}
             size="lg"
-            className="w-full brand-gradient text-white font-semibold shadow-lg hover:opacity-90 transition-opacity h-12 text-base"
+            className="w-full bg-primary text-primary-foreground font-semibold hover:bg-primary/90 transition-colors h-10 text-sm border border-primary/80"
           >
-            →  登入開始使用
+            →  登入開始使用
           </Button>
         </div>
       </div>
@@ -290,7 +290,7 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
             {/* 手機端右側：用戶頭像快速選單 */}
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <button className="h-8 w-8 rounded-full border border-border/50 bg-primary/10 flex items-center justify-center text-xs font-semibold text-primary shrink-0 focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+                <button className="h-7 w-7 rounded border border-border bg-muted/50 flex items-center justify-center text-xs font-semibold text-primary shrink-0 focus:outline-none focus-visible:ring-1 focus-visible:ring-ring">
                   {user?.name?.charAt(0).toUpperCase() ?? "U"}
                 </button>
               </DropdownMenuTrigger>

@@ -472,8 +472,8 @@ export default function Home() {
               {isLoading ? (
                 <div className="flex flex-col items-center justify-center py-16 gap-4">
                   <div className="relative">
-                    <div className="w-12 h-12 rounded-full brand-gradient animate-pulse-glow" />
-                    <Loader2 className="w-6 h-6 text-white absolute inset-0 m-auto animate-spin" />
+                    <div className="w-12 h-12 rounded border border-primary/40 bg-primary/10 animate-pulse" />
+                    <Loader2 className="w-6 h-6 text-primary absolute inset-0 m-auto animate-spin" />
                   </div>
                   <div className="text-center">
                     <p className="text-sm font-medium text-foreground">雙引擎運算中...</p>
@@ -486,7 +486,7 @@ export default function Home() {
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
-                  <div className="w-12 h-12 rounded-xl bg-muted/50 flex items-center justify-center">
+                  <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
                     <Zap className="w-6 h-6 text-muted-foreground" />
                   </div>
                   <div>
@@ -574,7 +574,7 @@ export default function Home() {
                   onSuccess: () => setNotionPreviewOpen(false),
                 });
               }}
-              className="brand-gradient text-black font-medium"
+              className="bg-primary text-primary-foreground font-medium hover:bg-primary/90 border border-primary/80"
             >
               {saveToNotionMutation.isPending
                 ? <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />存入中...</>

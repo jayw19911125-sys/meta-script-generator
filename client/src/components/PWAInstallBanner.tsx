@@ -82,15 +82,14 @@ export default function PWAInstallBanner() {
     >
       {/* 底部 Tab Bar 上方留空（手機端 Tab Bar 高度 64px） */}
       <div
-        className="mx-3 mb-20 rounded-xl border border-border/60 bg-card/95 backdrop-blur shadow-2xl p-4"
-        style={{ boxShadow: "0 -4px 32px rgba(0,0,0,0.4)" }}
+        className="mx-3 mb-20 rounded border border-border bg-card p-4"
       >
         <div className="flex items-start gap-3">
           {/* App Icon */}
           <img
             src="/manus-storage/icon-192_3354a938.png"
             alt="META 腳本生成器"
-            className="w-12 h-12 rounded-xl flex-shrink-0"
+            className="w-10 h-10 rounded border border-border flex-shrink-0"
           />
 
           <div className="flex-1 min-w-0">
@@ -130,7 +129,7 @@ export default function PWAInstallBanner() {
           <Button
             onClick={handleInstall}
             size="sm"
-            className="w-full mt-3 h-9 text-sm font-medium brand-gradient text-white border-0"
+            className="w-full mt-3 h-8 text-xs font-medium bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
           >
             <Download className="h-4 w-4 mr-1.5" />
             立即安裝

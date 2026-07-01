@@ -326,7 +326,7 @@ export default function MatrixPage() {
                   isCurrent
                     ? `${STEP_BG[step]} ${STEP_COLORS[step]} border border-current/30`
                     : isCompleted
-                    ? "bg-primary/10 text-primary"
+                    ? "bg-muted border border-border text-primary"
                     : "text-muted-foreground/40 cursor-not-allowed"
                 }`}
               >
