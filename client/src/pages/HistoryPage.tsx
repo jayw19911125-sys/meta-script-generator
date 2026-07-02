@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw, Grid3X3, BookmarkPlus, ExternalLink, ArrowUpDown, SortAsc, SortDesc, ChevronRight, Info } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
@@ -80,6 +81,7 @@ export default function HistoryPage() {
   };
 
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<number>>(new Set());
+  const [batchDeleteDialog, setBatchDeleteDialog] = useState<{ type: "script" | "matrix"; count: number } | null>(null);
   const deleteMutation = trpc.script.deleteHistory.useMutation({
     onSuccess: (_, variables) => {
       utils.script.history.invalidate();
@@ -154,6 +156,8 @@ export default function HistoryPage() {
   const [copiedMatrixId, setCopiedMatrixId] = useState<string | null>(null);
   const [matrixSearch, setMatrixSearch] = useState("");
   const [matrixSort, setMatrixSort] = useState<"date_desc" | "name_asc" | "score_desc">("date_desc");
+  const [matrixDateFrom, setMatrixDateFrom] = useState("");
+  const [matrixDateTo, setMatrixDateTo] = useState("");
   const [selectedMatrixIds, setSelectedMatrixIds] = useState<Set<number>>(new Set());
   const [expandedChecklistId, setExpandedChecklistId] = useState<string | null>(null);
   const [notionSavedMatrixKey, setNotionSavedMatrixKey] = useState<string | null>(null);
@@ -302,10 +306,16 @@ export default function HistoryPage() {
                 size="sm"
                 onClick={() => {
                   if (allItems.length === 0) { toast.error("無腳本紀錄可匯出"); return; }
-                  const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "AI 引擎", "腳本內容", "建立時間"]];
+                  const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "AI 引擎", "賣點", "目標受眾", "影片長度", "影片風格", "腳本內容", "建立時間"]];
                   allItems.forEach(item => {
+                    let snap: Record<string, string> = {};
+                    try { snap = JSON.parse(item.inputSnapshot ?? "{}"); } catch { snap = {}; }
                     rows.push([
                       item.productName, item.industry, item.funnel, item.engine,
+                      snap.sellingPoints ?? "",
+                      snap.targetAudience ?? "",
+                      snap.duration ?? "",
+                      snap.appearance ?? "",
                       (item.finalOutput ?? "").replace(/\n/g, " "),
                       new Date(item.createdAt).toLocaleString("zh-TW"),
                     ]);
@@ -404,11 +414,7 @@ export default function HistoryPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => {
-                          if (window.confirm(`確定刪除選取的 ${selectedScriptIds.size} 筆腳本紀錄？`)) {
-                            batchDeleteHistoryMutation.mutate({ ids: Array.from(selectedScriptIds) });
-                          }
-                        }}
+                        onClick={() => setBatchDeleteDialog({ type: "script", count: selectedScriptIds.size })}
                         disabled={batchDeleteHistoryMutation.isPending}
                         className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-mono gap-1"
                       >
@@ -709,16 +715,48 @@ export default function HistoryPage() {
                   <FileDown className="w-3.5 h-3.5" />匯出 CSV
                 </Button>
               </div>
+              {/* 日期範圍篩選 */}
+              <div className="flex items-center gap-2">
+                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                <Input
+                  type="date"
+                  value={matrixDateFrom}
+                  onChange={e => setMatrixDateFrom(e.target.value)}
+                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                  title="開始日期"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">至</span>
+                <Input
+                  type="date"
+                  value={matrixDateTo}
+                  onChange={e => setMatrixDateTo(e.target.value)}
+                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                  title="結束日期"
+                />
+                {(matrixDateFrom || matrixDateTo) && (
+                  <button
+                    onClick={() => { setMatrixDateFrom(""); setMatrixDateTo(""); }}
+                    className="text-muted-foreground/60 hover:text-foreground"
+                    title="清除日期篩選"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
+              </div>
               {/* 矩陣列表 */}
               {(() => {
                 const filtered = (() => {
-                  let list = matrixSearch.trim()
-                    ? allMatrixItems.filter(m =>
-                        m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
-                        m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
-                        m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
-                      )
-                    : [...allMatrixItems];
+                  let list = allMatrixItems.filter(m => {
+                    if (matrixSearch.trim() && !(
+                      m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                      m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                      m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
+                    )) return false;
+                    const d = new Date(m.createdAt);
+                    if (matrixDateFrom && d < new Date(matrixDateFrom)) return false;
+                    if (matrixDateTo && d > new Date(matrixDateTo + "T23:59:59")) return false;
+                    return true;
+                  });
                   if (matrixSort === "name_asc") {
                     list = list.sort((a, b) => a.productName.localeCompare(b.productName, "zh-TW"));
                   } else if (matrixSort === "score_desc") {
@@ -776,11 +814,7 @@ export default function HistoryPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => {
-                            if (window.confirm(`確定刪除選取的 ${selectedMatrixIds.size} 筆矩陣紀錄？`)) {
-                              batchDeleteMatrixMutation.mutate({ ids: Array.from(selectedMatrixIds) });
-                            }
-                          }}
+                          onClick={() => setBatchDeleteDialog({ type: "matrix", count: selectedMatrixIds.size })}
                           disabled={batchDeleteMatrixMutation.isPending}
                           className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-mono gap-1"
                         >
@@ -1131,6 +1165,36 @@ export default function HistoryPage() {
           )}
         </>
       )}
+      {/* 批次刪除確認 AlertDialog */}
+      <AlertDialog open={!!batchDeleteDialog} onOpenChange={(open) => !open && setBatchDeleteDialog(null)}>
+        <AlertDialogContent className="bg-card border-border">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-sm font-semibold font-mono">
+              確認批次刪除
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground font-mono">
+              即將刪除 <span className="text-destructive font-bold">{batchDeleteDialog?.count}</span> 筆
+              {batchDeleteDialog?.type === "script" ? "腳本" : "矩陣"}紀錄，此操作無法復原。
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="h-8 text-xs font-mono">取消</AlertDialogCancel>
+            <AlertDialogAction
+              className="h-8 text-xs font-mono bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => {
+                if (batchDeleteDialog?.type === "script") {
+                  batchDeleteHistoryMutation.mutate({ ids: Array.from(selectedScriptIds) });
+                } else if (batchDeleteDialog?.type === "matrix") {
+                  batchDeleteMatrixMutation.mutate({ ids: Array.from(selectedMatrixIds) });
+                }
+                setBatchDeleteDialog(null);
+              }}
+            >
+              確認刪除
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
