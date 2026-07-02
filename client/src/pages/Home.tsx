@@ -17,7 +17,8 @@ import {
   GPT_MODELS, CLAUDE_MODELS,
   type EngineConfig, type PromptInput, type EngineVendor,
 } from "@shared/scriptTypes";
-import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye, Info } from "lucide-react";
+import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Sparkles, BookmarkPlus, ExternalLink, Eye, Info, FileText, Code2 } from "lucide-react";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGenerating } from "@/components/DashboardLayout";
@@ -157,7 +158,19 @@ export default function Home() {
     });
   };
 
-    const handleCopy = () => { if (output) copyScript(output); };
+  // 純文字：移除 Markdown 標記（#、**、- 等）
+  const stripMarkdown = (md: string): string =>
+    md
+      .replace(/^#{1,6}\s+/gm, "")
+      .replace(/\*\*(.+?)\*\*/g, "$1")
+      .replace(/\*(.+?)\*/g, "$1")
+      .replace(/^[-*+]\s+/gm, "")
+      .replace(/^>\s+/gm, "")
+      .replace(/`{1,3}([^`]*)`{1,3}/g, "$1")
+      .replace(/\n{3,}/g, "\n\n")
+      .trim();
+  const handleCopyMarkdown = () => { if (output) copyScript(output); };
+  const handleCopyPlainText = () => { if (output) copyScript(stripMarkdown(output)); };
   const handleDownload = (format: "txt" | "md") => {
     if (!output) return;
     if (format === "txt") {
@@ -424,15 +437,31 @@ export default function Home() {
                 <CardTitle className="text-xs font-semibold text-muted-foreground uppercase tracking-wider font-mono">生成結果</CardTitle>
                 {output && (
                   <div className="flex items-center gap-0.5 flex-wrap">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleCopy}
-                      className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
-                    >
-                      {copied ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
-                      複製
-                    </Button>
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-7 px-2 text-xs text-muted-foreground hover:text-foreground"
+                        >
+                          {copied ? <CheckCircle2 className="w-3.5 h-3.5 mr-1 text-green-500" /> : <Copy className="w-3.5 h-3.5 mr-1" />}
+                          複製
+                          <ChevronDown className="w-3 h-3 ml-0.5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end" className="w-44">
+                        <DropdownMenuItem onClick={handleCopyPlainText} className="text-xs gap-2">
+                          <FileText className="w-3.5 h-3.5" />
+                          複製純文字
+                          <span className="ml-auto text-[10px] text-muted-foreground">LINE/Slack</span>
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onClick={handleCopyMarkdown} className="text-xs gap-2">
+                          <Code2 className="w-3.5 h-3.5" />
+                          複製 Markdown
+                          <span className="ml-auto text-[10px] text-muted-foreground">Notion</span>
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
                     <Button
                       variant="ghost"
                       size="sm"

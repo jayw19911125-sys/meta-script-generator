@@ -83,6 +83,7 @@ export default function MatrixPage() {
   const [rerunningId, setRerunningId] = useState<string | null>(null);
   const [notionSavedRec, setNotionSavedRec] = useState<number | null>(null);
   const [notionUrlRec, setNotionUrlRec] = useState<string | null>(null);
+  const [matrixSavedId, setMatrixSavedId] = useState<number | null>(null);
   // Notion 預覽視窗 state
   const [notionPreviewOpen, setNotionPreviewOpen] = useState(false);
   const [notionPreviewTitle, setNotionPreviewTitle] = useState("");
@@ -158,12 +159,25 @@ export default function MatrixPage() {
     },
   });
 
+  const saveMatrixMutation = trpc.matrix.saveMatrix.useMutation({
+    onSuccess: (data) => { if (data.id) setMatrixSavedId(data.id); },
+    onError: () => { /* 存庫失敗不影響主流程 */ },
+  });
+
   const recsMutation = trpc.matrix.generateRecommendations.useMutation({
     onSuccess: (data: unknown) => {
       const recommendations = data as MatrixRecommendation[];
       setMatrix(m => ({ ...m, recommendations }));
       setCurrentStep("recommendations");
       toast.success("AI 推薦評分完成！");
+      // 自動存入 DB（非封鎖式，失敗不影響使用）
+      saveMatrixMutation.mutate({
+        input: form,
+        hooksJson: JSON.stringify(matrix.hooks),
+        bodiesJson: JSON.stringify(matrix.bodies),
+        ctasJson: JSON.stringify(matrix.ctas),
+        recommendationsJson: JSON.stringify(recommendations),
+      });
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     onError: (err: any) => {

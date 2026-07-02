@@ -9,6 +9,9 @@ import {
   deleteScriptHistory,
   insertScriptHistory,
   listScriptHistory,
+  insertScriptMatrix,
+  listScriptMatrix,
+  deleteScriptMatrix,
 } from "../db";
 import {
   generateHooks,
@@ -356,5 +359,41 @@ export const matrixRouter = router({
         input.contextJson,
         config
       );
+    }),
+
+  // ===== 矩陣結果存庫 =====
+  saveMatrix: approvedProcedure
+    .input(z.object({
+      input: promptInputSchema,
+      hooksJson: z.string().max(50000),
+      bodiesJson: z.string().max(50000),
+      ctasJson: z.string().max(50000),
+      recommendationsJson: z.string().max(50000),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const id = await insertScriptMatrix({
+        userId: ctx.user.id,
+        productName: input.input.productName,
+        industry: input.input.industry,
+        funnel: input.input.funnel,
+        hooksJson: input.hooksJson,
+        bodiesJson: input.bodiesJson,
+        ctasJson: input.ctasJson,
+        recommendationsJson: input.recommendationsJson,
+        inputSnapshot: JSON.stringify(input.input),
+      });
+      return { id };
+    }),
+
+  // ===== 矩陣歷史查詢 =====
+  listMatrix: approvedProcedure
+    .query(({ ctx }) => listScriptMatrix(ctx.user.id, 30)),
+
+  // ===== 删除矩陣歷史 =====
+  deleteMatrix: approvedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      await deleteScriptMatrix(ctx.user.id, input.id);
+      return { success: true } as const;
     }),
 });
