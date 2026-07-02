@@ -200,11 +200,64 @@ button:active:not(:disabled) {
 
 /* Prose for script output */
 .script-output {
-  font-family: var(--font-mono);
-  font-size: 0.875rem;
-  line-height: 1.7;
-  white-space: pre-wrap;
+  font-size: 0.8125rem;
+  line-height: 1.75;
   word-break: break-word;
+}
+
+/* Markdown heading hierarchy inside script output */
+.script-output h1,
+.script-output h2,
+.script-output h3 {
+  font-family: var(--font-sans);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  margin-top: 1.25em;
+  margin-bottom: 0.35em;
+  color: hsl(var(--foreground));
+}
+.script-output h1 {
+  font-size: 0.9375rem;
+  border-bottom: 1px solid hsl(var(--border));
+  padding-bottom: 0.3em;
+}
+.script-output h2 {
+  font-size: 0.875rem;
+  color: hsl(var(--primary));
+}
+.script-output h3 {
+  font-size: 0.8125rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: hsl(var(--muted-foreground));
+}
+.script-output p {
+  margin-bottom: 0.6em;
+}
+.script-output strong {
+  font-weight: 600;
+  color: hsl(var(--foreground));
+}
+.script-output ul,
+.script-output ol {
+  padding-left: 1.25em;
+  margin-bottom: 0.6em;
+}
+.script-output li {
+  margin-bottom: 0.25em;
+}
+.script-output code {
+  font-family: var(--font-mono);
+  font-size: 0.75rem;
+  background: hsl(var(--muted));
+  border: 1px solid hsl(var(--border));
+  border-radius: 3px;
+  padding: 0.1em 0.35em;
+}
+.script-output hr {
+  border: none;
+  border-top: 1px solid hsl(var(--border));
+  margin: 1em 0;
 }
 
 /* Safe Area Inset — iPhone notch / home indicator support */

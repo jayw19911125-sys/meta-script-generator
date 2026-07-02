@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw } from "lucide-react";
 import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
@@ -210,6 +210,23 @@ export default function HistoryPage() {
                       </div>
                     </div>
                     <div className="flex items-center gap-0.5 shrink-0">
+                      {/* 以此設定重新生成 */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const params = new URLSearchParams({
+                            productName: item.productName,
+                            industry: item.industry,
+                            funnel: item.funnel,
+                          });
+                          setLocation(`/?${params.toString()}`);
+                        }}
+                        className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
+                        title="以此設定重新生成"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                      </Button>
                       {/* 發散版本 diff 按鈕（僅雙引擎模式有 gptOutput） */}
                       {item.gptOutput && (
                         <Button

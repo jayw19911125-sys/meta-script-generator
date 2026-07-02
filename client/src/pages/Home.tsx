@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
@@ -21,11 +21,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGenerating } from "@/components/DashboardLayout";
 import { Streamdown } from "streamdown";
+import { useLocation } from "wouter";
 
 type PresetKey = "premium" | "standard" | "lite";
 
 export default function Home() {
   const { setIsGenerating } = useGenerating();
+  const [location] = useLocation();
+
   // Form state
   const [form, setForm] = useState<PromptInput>({
     industry: "",
@@ -54,6 +57,27 @@ export default function Home() {
   const [notionPreviewTitle, setNotionPreviewTitle] = useState("");
   const [notionPreviewContent, setNotionPreviewContent] = useState("");
   const [notionPreviewNote, setNotionPreviewNote] = useState("");
+
+  // 從 URL 參數自動填入（來自歷史頁「以此設定重新生成」）
+  useEffect(() => {
+    const search = window.location.search;
+    if (!search) return;
+    const params = new URLSearchParams(search);
+    const productName = params.get("productName");
+    const industry = params.get("industry");
+    const funnel = params.get("funnel");
+    if (productName || industry || funnel) {
+      setForm(f => ({
+        ...f,
+        ...(productName ? { productName } : {}),
+        ...(industry ? { industry } : {}),
+        ...(funnel ? { funnel } : {}),
+      }));
+      // 清除 URL 參數，避免重新整理時重複填入
+      window.history.replaceState({}, "", window.location.pathname);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location]);
 
   const saveToNotionMutation = trpc.notion.saveQuickScript.useMutation({
     onSuccess: (data) => {
@@ -482,9 +506,29 @@ export default function Home() {
                   </div>
                 </div>
               ) : output ? (
-                <div className="script-output text-foreground/90 bg-background/50 rounded border border-border/30 p-4 max-h-[50dvh] lg:max-h-[600px] overflow-y-auto prose prose-sm prose-invert max-w-none">
-                  <Streamdown>{output}</Streamdown>
-                </div>
+                <>
+                  <div className="script-output text-foreground/90 bg-background/50 rounded border border-border/30 p-4 max-h-[50dvh] lg:max-h-[600px] overflow-y-auto prose prose-sm prose-invert max-w-none">
+                    <Streamdown>{output}</Streamdown>
+                  </div>
+                  {/* Notion 存入成功 inline 狀態列 */}
+                  {notionSaved && notionUrl && (
+                    <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded border border-emerald-500/30 bg-emerald-500/5">
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                      <span className="text-xs text-emerald-400 font-mono truncate flex-1">
+                        已存入 Notion
+                      </span>
+                      <a
+                        href={notionUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 transition-colors shrink-0"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        <span>開啟頁面</span>
+                      </a>
+                    </div>
+                  )}
+                </>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
                   <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
