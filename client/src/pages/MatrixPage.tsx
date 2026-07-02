@@ -112,7 +112,14 @@ export default function MatrixPage() {
       toast.success("Hook 生成完成！");
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
+    onError: (err: any) => {
+      const p = parseGenerationError(err);
+      toast.error(p.title, {
+        description: p.description,
+        duration: p.canRetry ? 5000 : 8000,
+        action: p.retryLabel && p.canRetry ? { label: p.retryLabel, onClick: () => handleGenerateHooks() } : undefined,
+      });
+    },
   });
 
   const bodiesMutation = trpc.matrix.generateBodies.useMutation({
@@ -123,7 +130,14 @@ export default function MatrixPage() {
       toast.success("Body 生成完成！");
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
+    onError: (err: any) => {
+      const p = parseGenerationError(err);
+      toast.error(p.title, {
+        description: p.description,
+        duration: p.canRetry ? 5000 : 8000,
+        action: p.retryLabel && p.canRetry ? { label: p.retryLabel, onClick: () => handleGenerateBodies() } : undefined,
+      });
+    },
   });
 
   const ctasMutation = trpc.matrix.generateCtas.useMutation({
@@ -134,7 +148,14 @@ export default function MatrixPage() {
       toast.success("CTA 生成完成！");
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
+    onError: (err: any) => {
+      const p = parseGenerationError(err);
+      toast.error(p.title, {
+        description: p.description,
+        duration: p.canRetry ? 5000 : 8000,
+        action: p.retryLabel && p.canRetry ? { label: p.retryLabel, onClick: () => handleGenerateCtas() } : undefined,
+      });
+    },
   });
 
   const recsMutation = trpc.matrix.generateRecommendations.useMutation({
@@ -145,7 +166,14 @@ export default function MatrixPage() {
       toast.success("AI 推薦評分完成！");
     },
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
+    onError: (err: any) => {
+      const p = parseGenerationError(err);
+      toast.error(p.title, {
+        description: p.description,
+        duration: p.canRetry ? 5000 : 8000,
+        action: p.retryLabel && p.canRetry ? { label: p.retryLabel, onClick: () => handleGenerateRecommendations() } : undefined,
+      });
+    },
   });
 
   const isAnyLoading = hooksMutation.isPending || bodiesMutation.isPending || ctasMutation.isPending || recsMutation.isPending || !!rerunningId;

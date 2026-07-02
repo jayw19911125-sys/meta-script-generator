@@ -53,6 +53,6 @@
 - [x] 缺陷15：補強核心業務邏輯測試覆蓋率（腳本生成、矩陣、知識庫同步）
 
 ## 新功能（2026-07-02）
-- [ ] 後端 rate limiting：每用戶每分鐘最多 10 次 LLM 呼叫（in-memory Map + timestamp）
-- [ ] 歷史頁 cursor-based pagination：後端支援 cursor/limit，前端加「載入更多」按鈕
-- [ ] 腳本生成失敗錯誤細化：區分超時/網路/額度不足三種情境，提供重試指引
+- [x] 後端 rate limiting：每用戶每分鐘最多 10 次 LLM 呼叫（in-memory Map + timestamp）
+- [x] 歷史頁 cursor-based pagination：後端支援 cursor/limit，前端加「載入更」按鈕
+- [x] 腳本生成失敗錯誤細化：區分超時/網路/額度不足三種情境，提供重試指引
