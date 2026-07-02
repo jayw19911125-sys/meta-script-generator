@@ -14,6 +14,7 @@ import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
 import { Streamdown } from "streamdown";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { MatrixRecommendation, ScriptModule } from "@shared/scriptTypes";
 
 export default function HistoryPage() {
@@ -241,26 +242,37 @@ export default function HistoryPage() {
       </div>
 
       {/* 統計摘要列 */}
-      {statsData && (
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
-            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•總筆數</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.scriptTotal}</p>
-          </div>
-          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
-            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•本月新增</p>
-            <p className="text-lg font-semibold text-primary tabular-nums">{statsData.scriptThisMonth}</p>
-          </div>
-          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
-            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•總筆數</p>
-            <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.matrixTotal}</p>
-          </div>
-          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
-            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•本月新增</p>
-            <p className="text-lg font-semibold text-primary tabular-nums">{statsData.matrixThisMonth}</p>
-          </div>
-        </div>
-      )}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {statsData ? (
+          <>
+            <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+              <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•總筆數</p>
+              <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.scriptTotal}</p>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+              <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•本月新增</p>
+              <p className="text-lg font-semibold text-primary tabular-nums">{statsData.scriptThisMonth}</p>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+              <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•總筆數</p>
+              <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.matrixTotal}</p>
+            </div>
+            <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+              <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•本月新增</p>
+              <p className="text-lg font-semibold text-primary tabular-nums">{statsData.matrixThisMonth}</p>
+            </div>
+          </>
+        ) : (
+          <>
+            {[0, 1, 2, 3].map(i => (
+              <div key={i} className="bg-muted/30 border border-border rounded-md px-3 py-2 space-y-1.5">
+                <Skeleton className="h-2.5 w-24 rounded" />
+                <Skeleton className="h-6 w-12 rounded" />
+              </div>
+            ))}
+          </>
+        )}
+      </div>
       {/* Tab 切換 */}
       <div className="flex items-center gap-1 border-b border-border">
         <button
@@ -405,23 +417,38 @@ export default function HistoryPage() {
             </div>
           ) : !history || history.length === 0 ? (
             <Card className="bg-card border-border">
-              <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
-                  <History className="w-5 h-5 text-muted-foreground/50" />
-                </div>
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+                {/* Empty State SVG */}
+                <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-40">
+                  <rect x="8" y="18" width="56" height="42" rx="4" stroke="currentColor" strokeWidth="2" className="text-muted-foreground" />
+                  <path d="M8 28h56" stroke="currentColor" strokeWidth="2" className="text-muted-foreground" />
+                  <path d="M24 18V12a4 4 0 0 1 4-4h16a4 4 0 0 1 4 4v6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" className="text-muted-foreground" />
+                  <circle cx="36" cy="46" r="8" stroke="currentColor" strokeWidth="2" className="text-muted-foreground" />
+                  <path d="M36 42v4l2.5 2.5" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="text-muted-foreground" />
+                </svg>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground">
-                    {hasFilters ? "找不到符合條件的紀錄" : "尚無歷史紀錄"}
+                  <p className="text-sm font-medium text-foreground">
+                    {hasFilters ? "找不到符合條件的紀錄" : "尚無快速出稿紀錄"}
                   </p>
-                  <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">
+                  <p className="text-[11px] text-muted-foreground/60 font-mono mt-1">
                     {hasFilters ? "try other keywords or clear filters" : "scripts will be saved here automatically"}
                   </p>
                 </div>
-                {!hasFilters && (
+                {hasFilters ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => { setKeyword(""); setFunnelFilter(""); setDateFrom(""); setDateTo(""); resetPagination(); }}
+                    className="h-8 text-xs"
+                  >
+                    <X className="w-3.5 h-3.5 mr-1.5" />
+                    清除全部篩選
+                  </Button>
+                ) : (
                   <Button
                     size="sm"
                     onClick={() => setLocation("/")}
-                    className="mt-1 h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
+                    className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
                   >
                     <Zap className="w-3.5 h-3.5 mr-1.5" />
                     立即生成第一支腳本
@@ -656,23 +683,37 @@ export default function HistoryPage() {
             </div>
           ) : allMatrixItems.length === 0 ? (
             <Card className="bg-card border-border">
-              <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-                <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
-                  <Grid3X3 className="w-5 h-5 text-muted-foreground/50" />
-                </div>
+              <CardContent className="flex flex-col items-center justify-center py-16 gap-4">
+                {/* Empty State SVG — 3x3 矩陣圖示 */}
+                <svg width="72" height="72" viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg" className="opacity-40">
+                  {/* 外框 */}
+                  <rect x="8" y="8" width="56" height="56" rx="4" stroke="currentColor" strokeWidth="2" className="text-muted-foreground" />
+                  {/* 橫線 */}
+                  <line x1="8" y1="27" x2="64" y2="27" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                  <line x1="8" y1="46" x2="64" y2="46" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                  {/* 縱線 */}
+                  <line x1="27" y1="8" x2="27" y2="64" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                  <line x1="46" y1="8" x2="46" y2="64" stroke="currentColor" strokeWidth="1.5" className="text-muted-foreground" />
+                  {/* 中心格高亮 */}
+                  <rect x="28" y="28" width="16" height="16" rx="2" fill="currentColor" fillOpacity="0.15" className="text-primary" />
+                  {/* 小點裝飾 */}
+                  <circle cx="17.5" cy="17.5" r="2.5" fill="currentColor" fillOpacity="0.3" className="text-muted-foreground" />
+                  <circle cx="36" cy="17.5" r="2.5" fill="currentColor" fillOpacity="0.3" className="text-muted-foreground" />
+                  <circle cx="54.5" cy="17.5" r="2.5" fill="currentColor" fillOpacity="0.3" className="text-muted-foreground" />
+                </svg>
                 <div className="text-center">
-                  <p className="text-xs text-muted-foreground">尚無矩陣紀錄</p>
-                  <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">
+                  <p className="text-sm font-medium text-foreground">尚無 3-3-3 矩陣紀錄</p>
+                  <p className="text-[11px] text-muted-foreground/60 font-mono mt-1">
                     matrix results will be saved here automatically
                   </p>
                 </div>
                 <Button
                   size="sm"
                   onClick={() => setLocation("/matrix")}
-                  className="mt-1 h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
+                  className="h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
                 >
                   <Grid3X3 className="w-3.5 h-3.5 mr-1.5" />
-                  前往 3-3-3 矩陣
+                  前往 3-3-3 矩陣生成
                 </Button>
               </CardContent>
             </Card>
@@ -767,32 +808,35 @@ export default function HistoryPage() {
                   <FileDown className="w-3.5 h-3.5" />匯出 CSV
                 </Button>
               </div>
-              {/* 日期範圍篩選 */}
-              <div className="flex items-center gap-2">
-                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-                <Input
-                  type="date"
-                  value={matrixDateFrom}
-                  onChange={e => setMatrixDateFrom(e.target.value)}
-                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
-                  title="開始日期"
-                />
-                <span className="text-xs text-muted-foreground shrink-0">至</span>
-                <Input
-                  type="date"
-                  value={matrixDateTo}
-                  onChange={e => setMatrixDateTo(e.target.value)}
-                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
-                  title="結束日期"
-                />
-                {(matrixDateFrom || matrixDateTo) && (
-                  <button
-                    onClick={() => { setMatrixDateFrom(""); setMatrixDateTo(""); }}
-                    className="text-muted-foreground/60 hover:text-foreground"
-                    title="清除日期篩選"
+              {/* 日期範圍篩選 + 清除全部篩選 */}
+              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+                <div className="flex items-center gap-2 flex-1">
+                  <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                  <Input
+                    type="date"
+                    value={matrixDateFrom}
+                    onChange={e => setMatrixDateFrom(e.target.value)}
+                    className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                    title="開始日期"
+                  />
+                  <span className="text-xs text-muted-foreground shrink-0">至</span>
+                  <Input
+                    type="date"
+                    value={matrixDateTo}
+                    onChange={e => setMatrixDateTo(e.target.value)}
+                    className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                    title="結束日期"
+                  />
+                </div>
+                {(matrixSearch || matrixDateFrom || matrixDateTo) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => { setMatrixSearch(""); setMatrixDateFrom(""); setMatrixDateTo(""); }}
+                    className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
                   >
-                    <X className="w-3.5 h-3.5" />
-                  </button>
+                    <X className="w-3.5 h-3.5 mr-1" />清除篩選
+                  </Button>
                 )}
               </div>
               {/* 矩陣列表 */}
