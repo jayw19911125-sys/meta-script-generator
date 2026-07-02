@@ -198,12 +198,16 @@ export default function MatrixPage() {
     const productName = params.get("productName");
     const industry = params.get("industry");
     const funnel = params.get("funnel");
-    if (productName || industry || funnel) {
+    const sellingPoints = params.get("sellingPoints");
+    const targetAudience = params.get("targetAudience");
+    if (productName || industry || funnel || sellingPoints || targetAudience) {
       setForm(f => ({
         ...f,
         ...(productName ? { productName } : {}),
         ...(industry ? { industry } : {}),
         ...(funnel ? { funnel } : {}),
+        ...(sellingPoints ? { sellingPoints } : {}),
+        ...(targetAudience ? { targetAudience } : {}),
       }));
       // 清除 URL 參數，避免重新整理時重複填入
       setLocation("/matrix", { replace: true });

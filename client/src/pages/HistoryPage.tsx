@@ -93,6 +93,7 @@ export default function HistoryPage() {
   });
   const [expandedMatrixId, setExpandedMatrixId] = useState<number | null>(null);
   const [copiedMatrixId, setCopiedMatrixId] = useState<string | null>(null);
+  const [matrixSearch, setMatrixSearch] = useState("");
   const [notionSavedMatrixKey, setNotionSavedMatrixKey] = useState<string | null>(null);
   const [notionUrlMatrixMap, setNotionUrlMatrixMap] = useState<Record<string, string>>({});
 
@@ -479,8 +480,47 @@ export default function HistoryPage() {
               </CardContent>
             </Card>
           ) : (
-            <div className="space-y-2">
-              {matrixHistory.map((item) => {
+            <div className="space-y-3">
+              {/* 矩陣搜尋列 */}
+              <div className="flex flex-col sm:flex-row gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 pointer-events-none" />
+                  <Input
+                    placeholder="搜尋產品名稱、產業或漏斗層級..."
+                    value={matrixSearch}
+                    onChange={e => setMatrixSearch(e.target.value)}
+                    className="pl-8 h-8 text-xs bg-card border-border font-mono"
+                  />
+                  {matrixSearch && (
+                    <button
+                      onClick={() => setMatrixSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground/60 hover:text-foreground"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              {/* 矩陣列表 */}
+              {(() => {
+                const filtered = matrixSearch.trim()
+                  ? matrixHistory.filter(m =>
+                      m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                      m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                      m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
+                    )
+                  : matrixHistory;
+                if (filtered.length === 0) {
+                  return (
+                    <div className="py-8 text-center">
+                      <p className="text-xs text-muted-foreground font-mono">搜尋無結果：「{matrixSearch}」</p>
+                    </div>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    {filtered.map((item) => {
+              // 展開列表起始位置（下方繼續原有 map callback）
                 const isExpanded = expandedMatrixId === item.id;
                 let recommendations: MatrixRecommendation[] = [];
                 let hooks: ScriptModule[] = [];
@@ -529,15 +569,23 @@ export default function HistoryPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
-                          {/* 重新生成：帶入 productName/industry/funnel 參數跳轉矩陣頁 */}
+                          {/* 重新生成：帶入完整欄位（包含 sellingPoints/targetAudience）跳轉矩陣頁 */}
                           <Button
                             variant="ghost"
                             size="sm"
                             onClick={() => {
+                              let snapshot: Record<string, string> = {};
+                              try {
+                                if (item.inputSnapshot) {
+                                  snapshot = JSON.parse(item.inputSnapshot) as Record<string, string>;
+                                }
+                              } catch { /* ignore */ }
                               const params = new URLSearchParams({
                                 productName: item.productName,
                                 industry: item.industry,
                                 funnel: item.funnel,
+                                ...(snapshot.sellingPoints ? { sellingPoints: snapshot.sellingPoints } : {}),
+                                ...(snapshot.targetAudience ? { targetAudience: snapshot.targetAudience } : {}),
                               });
                               setLocation(`/matrix?${params.toString()}`);
                             }}
@@ -638,11 +686,70 @@ export default function HistoryPage() {
                                   <span className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider">
                                     推薦組合 #{idx + 1}
                                   </span>
-                                  {rec.score !== undefined && (
-                                    <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30 font-mono">
-                                      score {rec.score}
-                                    </Badge>
-                                  )}
+                                  <div className="flex items-center gap-1.5">
+                                    {rec.score !== undefined && (
+                                      <Badge variant="outline" className="text-[10px] bg-primary/10 text-primary border-primary/30 font-mono">
+                                        score {rec.score}
+                                      </Badge>
+                                    )}
+                                    {/* 每組推薦獨立 Notion 存入按鈕 */}
+                                    {(() => {
+                                      const hookMod = hooks.find(h => h.index === rec.hookIndex);
+                                      const bodyMod = bodies.find(b => b.index === rec.bodyIndex);
+                                      const ctaMod = ctas.find(c => c.index === rec.ctaIndex);
+                                      if (!hookMod || !bodyMod || !ctaMod) return null;
+                                      const recNotionKey = `${item.id}-rec${idx}`;
+                                      const recNotionUrl = notionUrlMatrixMap[recNotionKey];
+                                      const recIsSaved = notionSavedMatrixKey === recNotionKey;
+                                      return (
+                                        <>
+                                          {recNotionUrl && (
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              onClick={() => window.open(recNotionUrl, "_blank")}
+                                              className="h-5 w-5 p-0 text-green-500 hover:text-green-400"
+                                              title="開啟 Notion 頁面"
+                                            >
+                                              <ExternalLink className="w-3 h-3" />
+                                            </Button>
+                                          )}
+                                          <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            onClick={() => {
+                                              saveMatrixToNotionMutation.mutate({
+                                                productName: item.productName,
+                                                funnel: item.funnel,
+                                                duration: "30",
+                                                industry: item.industry,
+                                                rankLabel: `推薦#${rec.rank ?? idx + 1} · score ${rec.score}`,
+                                                score: rec.score,
+                                                checklistNotes: rec.checklistNotes,
+                                                hook: { text: hookMod.text, shotDirection: hookMod.shotDirection, soundEffect: hookMod.soundEffect, performanceNote: hookMod.performanceNote },
+                                                body: { text: bodyMod.text, shotDirection: bodyMod.shotDirection, soundEffect: bodyMod.soundEffect, performanceNote: bodyMod.performanceNote },
+                                                cta: { text: ctaMod.text, shotDirection: ctaMod.shotDirection, soundEffect: ctaMod.soundEffect, performanceNote: ctaMod.performanceNote },
+                                              }, {
+                                                onSuccess: (data) => {
+                                                  setNotionSavedMatrixKey(recNotionKey);
+                                                  if (data.notionUrl) setNotionUrlMatrixMap(prev => ({ ...prev, [recNotionKey]: data.notionUrl! }));
+                                                },
+                                              });
+                                            }}
+                                            disabled={saveMatrixToNotionMutation.isPending || recIsSaved}
+                                            className={`h-5 w-5 p-0 ${
+                                              recIsSaved ? "text-green-500" : "text-muted-foreground hover:text-foreground"
+                                            }`}
+                                            title={recIsSaved ? "已存入 Notion" : "存入此推薦組合至 Notion"}
+                                          >
+                                            {recIsSaved
+                                              ? <CheckCircle2 className="w-3 h-3" />
+                                              : <BookmarkPlus className="w-3 h-3" />}
+                                          </Button>
+                                        </>
+                                      );
+                                    })()}
+                                  </div>
                                 </div>
                                 {/* 一鍵複製按鈕 */}
                                 {(() => {
@@ -692,7 +799,10 @@ export default function HistoryPage() {
                     )}
                   </Card>
                 );
-              })}
+                            })}
+                  </div>
+                );
+              })()}
             </div>
           )}
         </>
