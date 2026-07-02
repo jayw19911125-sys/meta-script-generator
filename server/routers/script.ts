@@ -18,14 +18,14 @@ import type { EngineConfig } from "@shared/scriptTypes";
 
 // ========== 輸入驗證 schema ==========
 const promptInputSchema = z.object({
-  industry: z.string().min(1),
-  productName: z.string().min(1),
-  sellingPoints: z.string().min(1),
-  targetAudience: z.string().min(1),
-  funnel: z.string().min(1),
-  duration: z.string().min(1),
-  appearance: z.string().min(1),
-  tone: z.string().min(1),
+  industry: z.string().min(1).max(100),
+  productName: z.string().min(1).max(200),
+  sellingPoints: z.string().min(1).max(2000),
+  targetAudience: z.string().min(1).max(1000),
+  funnel: z.string().min(1).max(100),
+  duration: z.string().min(1).max(50),
+  appearance: z.string().min(1).max(100),
+  tone: z.string().min(1).max(100),
 });
 
 /**
@@ -56,9 +56,9 @@ const engineModeSchema = z.enum(["dual", "claude_only", "gpt_only", "both"]);
 
 // 存庫用的摘要欄位（前端已轉好中文 label）
 const saveMetaSchema = z.object({
-  productName: z.string().min(1),
-  industry: z.string().min(1),
-  funnel: z.string().min(1),
+  productName: z.string().min(1).max(200),
+  industry: z.string().min(1).max(100),
+  funnel: z.string().min(1).max(100),
 });
 
 /** 統一的存庫邏輯：把一次生成結果寫入 DB。 */
@@ -235,10 +235,10 @@ export const scriptRouter = router({
   // ===== 歷史紀錄 =====
   history: approvedProcedure
     .input(z.object({
-      keyword: z.string().optional(),
-      funnel: z.string().optional(),
-      dateFrom: z.string().optional(),
-      dateTo: z.string().optional(),
+      keyword: z.string().max(200).optional(),
+      funnel: z.string().max(100).optional(),
+      dateFrom: z.string().max(20).optional(),
+      dateTo: z.string().max(20).optional(),
     }).optional())
     .query(({ ctx, input }) =>
       listScriptHistory(ctx.user.id, 50, input ?? {})

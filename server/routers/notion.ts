@@ -47,7 +47,7 @@ function callNotionMCP(tool: string, input: Record<string, unknown>): Record<str
 
   let raw: string;
   try {
-    raw = execSync(cmd, { encoding: "utf-8", timeout: 30000 });
+    raw = execSync(cmd, { encoding: "utf-8", timeout: 30000, maxBuffer: 10 * 1024 * 1024 }); // 10MB max
   } catch (e: unknown) {
     const msg = e instanceof Error ? e.message : String(e);
     throw new Error(`Notion MCP 呼叫失敗：${msg}`);
@@ -77,18 +77,18 @@ export const notionRouter = router({
   saveQuickScript: approvedProcedure
     .input(z.object({
       // 表單欄位（用於填 Notion 屬性欄）
-      productName:    z.string().min(1),
-      funnel:         z.string(),
-      duration:       z.string(),
-      platform:       z.string().optional().default("多平台"),
-      industry:       z.string().optional().default(""),
+      productName:    z.string().min(1).max(200),
+      funnel:         z.string().max(100),
+      duration:       z.string().max(50),
+      platform:       z.string().max(100).optional().default("多平台"),
+      industry:       z.string().max(100).optional().default(""),
       // 腳本完整文字（存入頁面 body）
-      scriptContent:  z.string().min(1),
+      scriptContent:  z.string().min(1).max(50000),
       // 引擎資訊（存備註）
-      engineConfig:   z.string().optional(),
+      engineConfig:   z.string().max(200).optional(),
       // 預覽視窗可自訂標題與備註
-      scriptTitle:    z.string().optional(),
-      notes:          z.string().optional(),
+      scriptTitle:    z.string().max(300).optional(),
+      notes:          z.string().max(2000).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const {
@@ -155,41 +155,41 @@ ${scriptContent}
   saveMatrixScript: approvedProcedure
     .input(z.object({
       // 表單欄位
-      productName:    z.string().min(1),
-      funnel:         z.string(),
-      duration:       z.string(),
-      platform:       z.string().optional().default("多平台"),
-      industry:       z.string().optional().default(""),
+      productName:    z.string().min(1).max(200),
+      funnel:         z.string().max(100),
+      duration:       z.string().max(50),
+      platform:       z.string().max(100).optional().default("多平台"),
+      industry:       z.string().max(100).optional().default(""),
       // 推薦組合資訊
-      rankLabel:      z.string().optional(),   // e.g. "推薦組合 #1"
-      score:          z.number().optional(),
-      checklistNotes: z.string().optional(),
+      rankLabel:      z.string().max(100).optional(),
+      score:          z.number().min(0).max(100).optional(),
+      checklistNotes: z.string().max(5000).optional(),
       // 三個模組
       hook: z.object({
-        text:            z.string(),
-        shotDirection:   z.string(),
-        soundEffect:     z.string(),
-        performanceNote: z.string(),
-        notes:           z.string().optional(),
+        text:            z.string().max(2000),
+        shotDirection:   z.string().max(1000),
+        soundEffect:     z.string().max(500),
+        performanceNote: z.string().max(1000),
+        notes:           z.string().max(2000).optional(),
       }),
       body: z.object({
-        text:            z.string(),
-        shotDirection:   z.string(),
-        soundEffect:     z.string(),
-        performanceNote: z.string(),
-        notes:           z.string().optional(),
+        text:            z.string().max(2000),
+        shotDirection:   z.string().max(1000),
+        soundEffect:     z.string().max(500),
+        performanceNote: z.string().max(1000),
+        notes:           z.string().max(2000).optional(),
       }),
       cta: z.object({
-        text:            z.string(),
-        shotDirection:   z.string(),
-        soundEffect:     z.string(),
-        performanceNote: z.string(),
-        notes:           z.string().optional(),
+        text:            z.string().max(2000),
+        shotDirection:   z.string().max(1000),
+        soundEffect:     z.string().max(500),
+        performanceNote: z.string().max(1000),
+        notes:           z.string().max(2000).optional(),
       }),
-      engineConfig:   z.string().optional(),
+      engineConfig:   z.string().max(200).optional(),
       // 預覽視窗可自訂標題與備註
-      scriptTitle:    z.string().optional(),
-      notes:          z.string().optional(),
+      scriptTitle:    z.string().max(300).optional(),
+      notes:          z.string().max(2000).optional(),
     }))
     .mutation(async ({ input, ctx }) => {
       const {

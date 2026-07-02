@@ -72,7 +72,9 @@ export async function listScriptHistory(
   if (!db) { console.warn("[Database] Cannot list script history: database not available"); return []; }
   const conditions = [eq(scriptHistory.userId, userId)];
   if (opts?.keyword) {
-    const kw = `%${opts.keyword}%`;
+    // Escape LIKE wildcards to prevent unintended pattern matching
+    const escaped = opts.keyword.replace(/[%_\\]/g, (c) => `\\${c}`);
+    const kw = `%${escaped}%`;
     conditions.push(or(
       like(scriptHistory.productName, kw),
       like(scriptHistory.industry, kw),

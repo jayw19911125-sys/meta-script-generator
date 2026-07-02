@@ -11,6 +11,7 @@ import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, Check
 import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
+import { Streamdown } from "streamdown";
 
 export default function HistoryPage() {
   const [, setLocation] = useLocation();
@@ -215,15 +216,27 @@ export default function HistoryPage() {
                         variant="ghost"
                         size="sm"
                         onClick={() => {
+                          // 解析 inputSnapshot 取得完整欄位
+                          let snapshot: Record<string, string> = {};
+                          try {
+                            if (item.inputSnapshot) {
+                              snapshot = JSON.parse(item.inputSnapshot) as Record<string, string>;
+                            }
+                          } catch { /* ignore */ }
                           const params = new URLSearchParams({
                             productName: item.productName,
                             industry: item.industry,
                             funnel: item.funnel,
+                            ...(snapshot.sellingPoints ? { sellingPoints: snapshot.sellingPoints } : {}),
+                            ...(snapshot.targetAudience ? { targetAudience: snapshot.targetAudience } : {}),
+                            ...(snapshot.duration ? { duration: snapshot.duration } : {}),
+                            ...(snapshot.appearance ? { appearance: snapshot.appearance } : {}),
+                            ...(snapshot.tone ? { tone: snapshot.tone } : {}),
                           });
                           setLocation(`/?${params.toString()}`);
                         }}
                         className="h-7 w-7 p-0 text-muted-foreground hover:text-primary"
-                        title="以此設定重新生成"
+                        title="以此設定重新生成（100% 自動填入）"
                       >
                         <RefreshCw className="w-3.5 h-3.5" />
                       </Button>
@@ -286,16 +299,16 @@ export default function HistoryPage() {
                       {/* 整合版本（最終腳本） */}
                       <div>
                         <p className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">整合版本 · final</p>
-                        <div className="script-output text-foreground/90 bg-background/50 rounded border border-border p-3 max-h-[40dvh] sm:max-h-80 overflow-y-auto text-xs">
-                          {item.finalOutput}
+                        <div className="script-output text-foreground/90 bg-background/50 rounded border border-border p-3 max-h-[40dvh] sm:max-h-80 overflow-y-auto prose prose-sm prose-invert max-w-none">
+                          <Streamdown>{item.finalOutput}</Streamdown>
                         </div>
                       </div>
                       {/* 發散版本（原始 Hook 草稿） */}
                       {isShowingGpt && item.gptOutput && (
                         <div>
                           <p className="text-[11px] font-mono font-medium text-muted-foreground uppercase tracking-wider mb-1.5">發散版本 · draft</p>
-                          <div className="script-output text-foreground/70 bg-background/30 rounded border border-border p-3 max-h-[30dvh] sm:max-h-60 overflow-y-auto text-xs">
-                            {item.gptOutput}
+                          <div className="script-output text-foreground/70 bg-background/30 rounded border border-border p-3 max-h-[30dvh] sm:max-h-60 overflow-y-auto prose prose-sm prose-invert max-w-none opacity-80">
+                            <Streamdown>{item.gptOutput}</Streamdown>
                           </div>
                         </div>
                       )}

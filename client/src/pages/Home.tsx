@@ -66,12 +66,23 @@ export default function Home() {
     const productName = params.get("productName");
     const industry = params.get("industry");
     const funnel = params.get("funnel");
-    if (productName || industry || funnel) {
+    const sellingPoints = params.get("sellingPoints");
+    const targetAudience = params.get("targetAudience");
+    const duration = params.get("duration");
+    const appearance = params.get("appearance");
+    const tone = params.get("tone");
+    const hasAny = productName || industry || funnel || sellingPoints || targetAudience || duration || appearance || tone;
+    if (hasAny) {
       setForm(f => ({
         ...f,
         ...(productName ? { productName } : {}),
         ...(industry ? { industry } : {}),
         ...(funnel ? { funnel } : {}),
+        ...(sellingPoints ? { sellingPoints } : {}),
+        ...(targetAudience ? { targetAudience } : {}),
+        ...(duration ? { duration } : {}),
+        ...(appearance ? { appearance } : {}),
+        ...(tone ? { tone } : {}),
       }));
       // 清除 URL 參數，避免重新整理時重複填入
       window.history.replaceState({}, "", window.location.pathname);
@@ -289,6 +300,7 @@ export default function Home() {
                   onChange={e => setForm(f => ({ ...f, sellingPoints: e.target.value }))}
                   className="text-sm bg-input border-border resize-none"
                   rows={2}
+                  maxLength={2000}
                 />
               </div>
               <div className="space-y-1.5">
@@ -298,6 +310,7 @@ export default function Home() {
                   value={form.targetAudience}
                   onChange={e => setForm(f => ({ ...f, targetAudience: e.target.value }))}
                   className="h-8 text-sm bg-input border-border"
+                  maxLength={1000}
                 />
               </div>
             </CardContent>
@@ -565,6 +578,7 @@ export default function Home() {
                 onChange={(e) => setNotionPreviewTitle(e.target.value)}
                 className="text-sm bg-muted/30 border-border/40 h-8"
                 placeholder="腳本標題"
+                maxLength={300}
               />
             </div>
 
@@ -576,6 +590,7 @@ export default function Home() {
                 onChange={(e) => setNotionPreviewContent(e.target.value)}
                 className="text-xs bg-muted/30 border-border/40 font-mono leading-relaxed resize-none"
                 rows={14}
+                maxLength={50000}
               />
             </div>
 
@@ -587,6 +602,7 @@ export default function Home() {
                 onChange={(e) => setNotionPreviewNote(e.target.value)}
                 className="text-sm bg-muted/30 border-border/40 h-8"
                 placeholder="例：第一次測試、客戶 A 用"
+                maxLength={2000}
               />
             </div>
           </div>

@@ -401,13 +401,13 @@ export default function MatrixPage() {
                 <Label className="text-xs text-muted-foreground">核心賣點 *</Label>
                 <Textarea placeholder="e.g. 日本專利配方、28天見效" value={form.sellingPoints}
                   onChange={e => setForm(f => ({ ...f, sellingPoints: e.target.value }))}
-                  className="text-sm bg-input border-border resize-none" rows={2} />
+                  className="text-sm bg-input border-border resize-none" rows={2} maxLength={2000} />
               </div>
               <div className="space-y-1.5">
                 <Label className="text-xs text-muted-foreground">目標受眾 *</Label>
                 <Input placeholder="e.g. 25-40 歲女性，注重保養" value={form.targetAudience}
                   onChange={e => setForm(f => ({ ...f, targetAudience: e.target.value }))}
-                  className="h-8 text-sm bg-input border-border" />
+                  className="h-8 text-sm bg-input border-border" maxLength={1000} />
               </div>
             </CardContent>
           </Card>
@@ -791,6 +791,7 @@ export default function MatrixPage() {
                 value={notionPreviewTitle}
                 onChange={(e) => setNotionPreviewTitle(e.target.value)}
                 className="text-sm bg-muted/30 border-border h-8"
+                maxLength={300}
               />
             </div>
             <div className="flex flex-col gap-1.5">
@@ -800,6 +801,7 @@ export default function MatrixPage() {
                 onChange={(e) => setNotionPreviewNote(e.target.value)}
                 className="text-sm bg-muted/30 border-border h-8"
                 placeholder="例：第一次測試、客戶 A 用"
+                maxLength={2000}
               />
             </div>
 
@@ -950,6 +952,7 @@ function ModuleGrid({ modules, label, color, bg, notes, onNoteChange, onCopy, re
                 onChange={e => onNoteChange(mod.id, e.target.value)}
                 disabled={isRerunning}
                 className="text-xs bg-input border-border resize-none h-14"
+                maxLength={2000}
               />
             </div>
           </CardContent>
