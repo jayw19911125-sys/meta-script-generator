@@ -116,6 +116,12 @@ export async function deleteScriptHistory(userId: number, id: number): Promise<v
   if (!db) { console.warn("[Database] Cannot delete script history: database not available"); return; }
   await db.delete(scriptHistory).where(and(eq(scriptHistory.id, id), eq(scriptHistory.userId, userId)));
 }
+export async function batchDeleteScriptHistory(userId: number, ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot batch delete script history: database not available"); return; }
+  await db.delete(scriptHistory).where(and(inArray(scriptHistory.id, ids), eq(scriptHistory.userId, userId)));
+}
 
 // ========== 矩陣歷史紀錄 CRUD ==========
 
@@ -131,6 +137,19 @@ export async function listScriptMatrix(userId: number, limit = 50) {
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot list script matrix: database not available"); return []; }
   return db.select().from(scriptMatrix).where(eq(scriptMatrix.userId, userId)).orderBy(desc(scriptMatrix.createdAt)).limit(limit);
+}
+export async function listScriptMatrixPaged(userId: number, limit = 20, cursor?: number) {
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot list script matrix paged: database not available"); return { items: [], hasMore: false, nextCursor: null }; }
+  const pageLimit = limit + 1;
+  const conditions = cursor
+    ? and(eq(scriptMatrix.userId, userId), lt(scriptMatrix.id, cursor))
+    : eq(scriptMatrix.userId, userId);
+  const rows = await db.select().from(scriptMatrix).where(conditions).orderBy(desc(scriptMatrix.id)).limit(pageLimit);
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? items[items.length - 1].id : null;
+  return { items, hasMore, nextCursor };
 }
 
 export async function deleteScriptMatrix(userId: number, id: number): Promise<void> {

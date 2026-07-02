@@ -78,6 +78,7 @@ export default function HistoryPage() {
     setCursor(nextCursor);
   };
 
+  const [selectedScriptIds, setSelectedScriptIds] = useState<Set<number>>(new Set());
   const deleteMutation = trpc.script.deleteHistory.useMutation({
     onSuccess: () => {
       utils.script.history.invalidate();
@@ -85,15 +86,62 @@ export default function HistoryPage() {
     },
     onError: () => toast.error("刪除失敗"),
   });
+  const batchDeleteHistoryMutation = trpc.script.batchDeleteHistory.useMutation({
+    onSuccess: (data) => {
+      resetPagination();
+      utils.script.history.invalidate();
+      setSelectedScriptIds(new Set());
+      toast.success(`已刪除 ${data.count} 筆腳本紀錄`);
+    },
+    onError: () => toast.error("批次刪除失敗"),
+  });
 
-  // ===== 矩陣歷史 =====
-  const { data: matrixHistory, isLoading: isMatrixLoading } = trpc.matrix.listMatrix.useQuery();
+  // ===== 矩陣歷史（分頁載入） =====
+  const [matrixCursor, setMatrixCursor] = useState<number | undefined>(undefined);
+  const [allMatrixItems, setAllMatrixItems] = useState<Array<{
+    id: number; userId: number; productName: string; industry: string; funnel: string;
+    hooksJson: string; bodiesJson: string; ctasJson: string; recommendationsJson: string;
+    inputSnapshot: string | null; createdAt: Date;
+  }>>([]);
+  const [matrixHasMore, setMatrixHasMore] = useState(false);
+  const [matrixNextCursor, setMatrixNextCursor] = useState<number | null>(null);
+  const [isMatrixLoadingMore, setIsMatrixLoadingMore] = useState(false);
+  const matrixPrevCursorRef = useRef<number | undefined>(undefined);
+  const { data: matrixPageData, isLoading: isMatrixLoading } = trpc.matrix.listMatrix.useQuery(
+    { cursor: matrixCursor, limit: 20 }
+  );
+  useEffect(() => {
+    if (!matrixPageData) return;
+    if (matrixPrevCursorRef.current === matrixCursor && matrixCursor === undefined) {
+      setAllMatrixItems(matrixPageData.items);
+    } else if (matrixCursor !== undefined && matrixCursor !== matrixPrevCursorRef.current) {
+      setAllMatrixItems(prev => [...prev, ...matrixPageData.items]);
+    } else {
+      setAllMatrixItems(matrixPageData.items);
+    }
+    matrixPrevCursorRef.current = matrixCursor;
+    setMatrixHasMore(matrixPageData.hasMore);
+    setMatrixNextCursor(matrixPageData.nextCursor);
+    setIsMatrixLoadingMore(false);
+  }, [matrixPageData, matrixCursor]);
+  const handleMatrixLoadMore = () => {
+    if (!matrixNextCursor || isMatrixLoadingMore) return;
+    setIsMatrixLoadingMore(true);
+    setMatrixCursor(matrixNextCursor);
+  };
   const deleteMatrixMutation = trpc.matrix.deleteMatrix.useMutation({
-    onSuccess: () => { utils.matrix.listMatrix.invalidate(); toast.success("已刪除"); },
+    onSuccess: () => {
+      setMatrixCursor(undefined);
+      setAllMatrixItems([]);
+      utils.matrix.listMatrix.invalidate();
+      toast.success("已刪除");
+    },
     onError: () => toast.error("刪除失敗"),
   });
   const batchDeleteMatrixMutation = trpc.matrix.batchDeleteMatrix.useMutation({
     onSuccess: (data) => {
+      setMatrixCursor(undefined);
+      setAllMatrixItems([]);
       utils.matrix.listMatrix.invalidate();
       setSelectedMatrixIds(new Set());
       toast.success(`已刪除 ${data.count} 筆矩陣紀錄`);
@@ -172,8 +220,8 @@ export default function HistoryPage() {
         {activeTab === "scripts" && history && history.length > 0 && (
           <span className="text-[11px] text-muted-foreground font-mono">{history.length} records</span>
         )}
-        {activeTab === "matrix" && matrixHistory && matrixHistory.length > 0 && (
-          <span className="text-[11px] text-muted-foreground font-mono">{matrixHistory.length} matrices</span>
+        {activeTab === "matrix" && allMatrixItems.length > 0 && (
+          <span className="text-[11px] text-muted-foreground font-mono">{allMatrixItems.length} matrices</span>
         )}
       </div>
 
@@ -300,13 +348,68 @@ export default function HistoryPage() {
             </Card>
           ) : (
             <div className="space-y-2">
+              {/* 全選列 */}
+              {(() => {
+                const allIds = allItems.map(i => i.id);
+                const allSelected = allIds.length > 0 && allIds.every(id => selectedScriptIds.has(id));
+                const someSelected = selectedScriptIds.size > 0;
+                return (
+                  <div className="flex items-center justify-between px-1 py-1">
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="script-select-all"
+                        checked={allSelected}
+                        onCheckedChange={(checked) => {
+                          if (checked) setSelectedScriptIds(new Set(allIds));
+                          else setSelectedScriptIds(new Set());
+                        }}
+                        className="w-3.5 h-3.5"
+                      />
+                      <label htmlFor="script-select-all" className="text-[11px] text-muted-foreground font-mono cursor-pointer select-none">
+                        {allSelected ? "取消全選" : "全選"}{someSelected && ` (${selectedScriptIds.size})`}
+                      </label>
+                    </div>
+                    {someSelected && (
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          if (window.confirm(`確定刪除選取的 ${selectedScriptIds.size} 筆腳本紀錄？`)) {
+                            batchDeleteHistoryMutation.mutate({ ids: Array.from(selectedScriptIds) });
+                          }
+                        }}
+                        disabled={batchDeleteHistoryMutation.isPending}
+                        className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-mono gap-1"
+                      >
+                        {batchDeleteHistoryMutation.isPending
+                          ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                          : <Trash2 className="w-3.5 h-3.5" />}
+                        刪除選取 ({selectedScriptIds.size})
+                      </Button>
+                    )}
+                  </div>
+                );
+              })()}
               {history.map((item) => {
                 const isExpanded = expandedId === item.id;
                 const isShowingGpt = showGptId === item.id;
                 return (
-                  <Card key={item.id} className="bg-card border-border overflow-hidden">
+                  <Card key={item.id} className={`bg-card border-border overflow-hidden transition-colors ${selectedScriptIds.has(item.id) ? 'border-primary/50 bg-primary/5' : ''}`}>
                     <CardHeader className="pb-2 pt-3">
                       <div className="flex items-start justify-between gap-3">
+                        <div className="flex items-start gap-2 shrink-0 pt-0.5">
+                          <Checkbox
+                            checked={selectedScriptIds.has(item.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedScriptIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(item.id); else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5"
+                          />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <CardTitle className="text-xs font-semibold text-foreground truncate">
@@ -469,7 +572,7 @@ export default function HistoryPage() {
             <div className="flex items-center justify-center py-16">
               <Loader2 className="w-5 h-5 animate-spin text-muted-foreground" />
             </div>
-          ) : !matrixHistory || matrixHistory.length === 0 ? (
+          ) : allMatrixItems.length === 0 ? (
             <Card className="bg-card border-border">
               <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
                 <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
@@ -524,17 +627,60 @@ export default function HistoryPage() {
                     <SelectItem value="score_desc" className="text-xs font-mono">推薦最高分</SelectItem>
                   </SelectContent>
                 </Select>
+                {/* 匙出 CSV */}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (allMatrixItems.length === 0) { toast.error("無矩陣紀錄可匙出"); return; }
+                    const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "推薦組數", "最高分", "Hook", "Body", "CTA", "建立時間"]];
+                    allMatrixItems.forEach(m => {
+                      let recs: MatrixRecommendation[] = [];
+                      let hooks: ScriptModule[] = [];
+                      let bodies: ScriptModule[] = [];
+                      let ctas: ScriptModule[] = [];
+                      try { recs = JSON.parse(m.recommendationsJson ?? "[]"); } catch { recs = []; }
+                      try { hooks = JSON.parse(m.hooksJson ?? "[]"); } catch { hooks = []; }
+                      try { bodies = JSON.parse(m.bodiesJson ?? "[]"); } catch { bodies = []; }
+                      try { ctas = JSON.parse(m.ctasJson ?? "[]"); } catch { ctas = []; }
+                      const sorted = [...recs].sort((a, b) => b.score - a.score);
+                      const top = sorted[0];
+                      const hook = top ? hooks[top.hookIndex] : null;
+                      const body = top ? bodies[top.bodyIndex] : null;
+                      const cta = top ? ctas[top.ctaIndex] : null;
+                      rows.push([
+                        m.productName, m.industry, m.funnel,
+                        String(sorted.length),
+                        top ? String(top.score) : "",
+                        hook?.text ?? "",
+                        body?.text ?? "",
+                        cta?.text ?? "",
+                        new Date(m.createdAt).toLocaleString("zh-TW"),
+                      ]);
+                    });
+                    const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+                    const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = `矩陣歷史_${new Date().toISOString().slice(0,10)}.csv`;
+                    a.click(); URL.revokeObjectURL(url);
+                    toast.success("匙出 CSV 成功");
+                  }}
+                  className="h-8 px-3 text-xs font-mono text-muted-foreground hover:text-foreground shrink-0 gap-1.5"
+                >
+                  <FileDown className="w-3.5 h-3.5" />匙出 CSV
+                </Button>
               </div>
               {/* 矩陣列表 */}
               {(() => {
                 const filtered = (() => {
                   let list = matrixSearch.trim()
-                    ? matrixHistory.filter(m =>
+                    ? allMatrixItems.filter(m =>
                         m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
                         m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
                         m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
                       )
-                    : [...matrixHistory];
+                    : [...allMatrixItems];
                   if (matrixSort === "name_asc") {
                     list = list.sort((a, b) => a.productName.localeCompare(b.productName, "zh-TW"));
                   } else if (matrixSort === "score_desc") {
@@ -921,7 +1067,22 @@ export default function HistoryPage() {
                     )}
                   </Card>
                 );
-                            })}
+              })}
+                    {matrixHasMore && (
+                      <div className="flex justify-center pt-2 pb-1">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={handleMatrixLoadMore}
+                          disabled={isMatrixLoadingMore}
+                          className="text-xs font-mono text-muted-foreground hover:text-foreground gap-1.5 h-7"
+                        >
+                          {isMatrixLoadingMore
+                            ? <><Loader2 className="w-3.5 h-3.5 animate-spin" />載入中...</>
+                            : <><ChevronDown className="w-3.5 h-3.5" />載入更多矩陣紀錄</>}
+                        </Button>
+                      </div>
+                    )}
                   </div>
                 );
               })()}

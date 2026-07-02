@@ -7,10 +7,12 @@ import type { NotionSaveInput } from "../notionWriteService";
 import { runPostSaveNotifications } from "../notifyService";
 import {
   deleteScriptHistory,
+  batchDeleteScriptHistory,
   insertScriptHistory,
   listScriptHistory,
   insertScriptMatrix,
   listScriptMatrix,
+  listScriptMatrixPaged,
   deleteScriptMatrix,
   batchDeleteScriptMatrix,
 } from "../db";
@@ -266,6 +268,12 @@ export const scriptRouter = router({
       await deleteScriptHistory(ctx.user.id, input.id);
       return { success: true } as const;
     }),
+  batchDeleteHistory: approvedProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      await batchDeleteScriptHistory(ctx.user.id, input.ids);
+      return { success: true, count: input.ids.length } as const;
+    }),
 });
 
 // ========== 3-3-3 矩陣生成系統 API (Phase 5) ==========
@@ -388,7 +396,11 @@ export const matrixRouter = router({
 
   // ===== 矩陣歷史查詢 =====
   listMatrix: approvedProcedure
-    .query(({ ctx }) => listScriptMatrix(ctx.user.id, 30)),
+    .input(z.object({
+      cursor: z.number().int().positive().optional(),
+      limit: z.number().int().min(1).max(50).default(20),
+    }).optional())
+    .query(({ ctx, input }) => listScriptMatrixPaged(ctx.user.id, input?.limit ?? 20, input?.cursor)),
 
   // ===== 删除矩陣歷史 =====
   deleteMatrix: approvedProcedure
