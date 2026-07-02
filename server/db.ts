@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, like, lt, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte, or, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -165,6 +165,25 @@ export async function batchDeleteScriptMatrix(userId: number, ids: number[]): Pr
 }
 
 // ========== Notion 同步記錄 CRUD ==========
+
+export async function getHistoryStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { scriptTotal: 0, scriptThisMonth: 0, matrixTotal: 0, matrixThisMonth: 0 };
+  const now = new Date();
+  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const [scriptTotalRows, scriptMonthRows, matrixTotalRows, matrixMonthRows] = await Promise.all([
+    db.select({ count: sql<number>`count(*)` }).from(scriptHistory).where(eq(scriptHistory.userId, userId)),
+    db.select({ count: sql<number>`count(*)` }).from(scriptHistory).where(and(eq(scriptHistory.userId, userId), gte(scriptHistory.createdAt, monthStart))),
+    db.select({ count: sql<number>`count(*)` }).from(scriptMatrix).where(eq(scriptMatrix.userId, userId)),
+    db.select({ count: sql<number>`count(*)` }).from(scriptMatrix).where(and(eq(scriptMatrix.userId, userId), gte(scriptMatrix.createdAt, monthStart))),
+  ]);
+  return {
+    scriptTotal: Number(scriptTotalRows[0]?.count ?? 0),
+    scriptThisMonth: Number(scriptMonthRows[0]?.count ?? 0),
+    matrixTotal: Number(matrixTotalRows[0]?.count ?? 0),
+    matrixThisMonth: Number(matrixMonthRows[0]?.count ?? 0),
+  };
+}
 
 export async function insertNotionSyncLog(record: InsertNotionSyncLog): Promise<void> {
   const db = await getDb();

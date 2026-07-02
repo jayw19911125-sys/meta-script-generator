@@ -114,6 +114,7 @@ export default function HistoryPage() {
   const { data: matrixPageData, isLoading: isMatrixLoading } = trpc.matrix.listMatrix.useQuery(
     { cursor: matrixCursor, limit: 20 }
   );
+  const { data: statsData } = trpc.script.historyStats.useQuery();
   useEffect(() => {
     if (!matrixPageData) return;
     if (matrixPrevCursorRef.current === matrixCursor && matrixCursor === undefined) {
@@ -207,8 +208,16 @@ export default function HistoryPage() {
     return "bg-green-500/10 text-green-400 border-green-500/30";
   };
 
+  const [scriptSort, setScriptSort] = useState<"newest" | "product" | "engine">("newest");
   const hasFilters = !!keyword || !!funnelFilter || !!dateFrom || !!dateTo;
-  const history = allItems.length > 0 ? allItems : (historyData && !Array.isArray(historyData) ? historyData.items : []);
+  const rawHistory = allItems.length > 0 ? allItems : (historyData && !Array.isArray(historyData) ? historyData.items : []);
+  const history = (() => {
+    const list = [...rawHistory];
+    if (scriptSort === "product") list.sort((a, b) => a.productName.localeCompare(b.productName, "zh-TW"));
+    else if (scriptSort === "engine") list.sort((a, b) => (a.engine ?? "").localeCompare(b.engine ?? ""));
+    // newest: keep original order (already DESC from server)
+    return list;
+  })();
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
@@ -231,6 +240,27 @@ export default function HistoryPage() {
         )}
       </div>
 
+      {/* 統計摘要列 */}
+      {statsData && (
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•總筆數</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.scriptTotal}</p>
+          </div>
+          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">快速出稿•本月新增</p>
+            <p className="text-lg font-semibold text-primary tabular-nums">{statsData.scriptThisMonth}</p>
+          </div>
+          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•總筆數</p>
+            <p className="text-lg font-semibold text-foreground tabular-nums">{statsData.matrixTotal}</p>
+          </div>
+          <div className="bg-muted/30 border border-border rounded-md px-3 py-2">
+            <p className="text-[10px] text-muted-foreground font-mono mb-0.5">3-3-3 矩陣•本月新增</p>
+            <p className="text-lg font-semibold text-primary tabular-nums">{statsData.matrixThisMonth}</p>
+          </div>
+        </div>
+      )}
       {/* Tab 切換 */}
       <div className="flex items-center gap-1 border-b border-border">
         <button
@@ -333,24 +363,39 @@ export default function HistoryPage() {
                 <FileDown className="w-3.5 h-3.5" />匯出 CSV
               </Button>
             </div>
-            {/* 日期範圍篩選 */}
-            <div className="flex items-center gap-2">
-              <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
-              <Input
-                type="date"
-                value={dateFrom}
-                onChange={e => { setDateFrom(e.target.value); resetPagination(); }}
-                className="h-8 text-xs bg-input border-border w-full sm:w-40"
-                title="開始日期"
-              />
-              <span className="text-xs text-muted-foreground shrink-0">至</span>
-              <Input
-                type="date"
-                value={dateTo}
-                onChange={e => { setDateTo(e.target.value); resetPagination(); }}
-                className="h-8 text-xs bg-input border-border w-full sm:w-40"
-                title="結束日期"
-              />
+            {/* 日期範圍篩選 + 排序切換 */}
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-2">
+              <div className="flex items-center gap-2 flex-1">
+                <CalendarDays className="w-3.5 h-3.5 text-muted-foreground/60 shrink-0" />
+                <Input
+                  type="date"
+                  value={dateFrom}
+                  onChange={e => { setDateFrom(e.target.value); resetPagination(); }}
+                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                  title="開始日期"
+                />
+                <span className="text-xs text-muted-foreground shrink-0">至</span>
+                <Input
+                  type="date"
+                  value={dateTo}
+                  onChange={e => { setDateTo(e.target.value); resetPagination(); }}
+                  className="h-8 text-xs bg-input border-border w-full sm:w-40"
+                  title="結束日期"
+                />
+              </div>
+              <div className="flex items-center gap-1.5 shrink-0">
+                <ArrowUpDown className="w-3.5 h-3.5 text-muted-foreground/60" />
+                <Select value={scriptSort} onValueChange={v => setScriptSort(v as typeof scriptSort)}>
+                  <SelectTrigger className="h-8 text-xs bg-input border-border w-36">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="newest">最新優先</SelectItem>
+                    <SelectItem value="product">產品名稱 A→Z</SelectItem>
+                    <SelectItem value="engine">AI 引擎</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
           </div>
 
@@ -671,19 +716,25 @@ export default function HistoryPage() {
                   onClick={() => {
                     if (allMatrixItems.length === 0) { toast.error("無矩陣紀錄可匯出"); return; }
                     // 每組推薦各佔一行，方便後續分析
-                    const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "推薦排名", "評分", "Hook", "Body", "CTA", "建立時間"]];
+                    const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "賣點", "目標受眾", "影片長度", "影片風格", "推薦排名", "評分", "Hook", "Body", "CTA", "建立時間"]];
                     allMatrixItems.forEach(m => {
                       let recs: MatrixRecommendation[] = [];
                       let hooks: ScriptModule[] = [];
                       let bodies: ScriptModule[] = [];
                       let ctas: ScriptModule[] = [];
+                      let snap: Record<string, string> = {};
                       try { recs = JSON.parse(m.recommendationsJson ?? "[]"); } catch { recs = []; }
                       try { hooks = JSON.parse(m.hooksJson ?? "[]"); } catch { hooks = []; }
                       try { bodies = JSON.parse(m.bodiesJson ?? "[]"); } catch { bodies = []; }
                       try { ctas = JSON.parse(m.ctasJson ?? "[]"); } catch { ctas = []; }
+                      try { snap = JSON.parse(m.inputSnapshot ?? "{}"); } catch { snap = {}; }
+                      const sellingPoints = snap.sellingPoints ?? "";
+                      const targetAudience = snap.targetAudience ?? "";
+                      const duration = snap.duration ?? "";
+                      const appearance = snap.appearance ?? "";
                       const sorted = [...recs].sort((a, b) => b.score - a.score);
                       if (sorted.length === 0) {
-                        rows.push([m.productName, m.industry, m.funnel, "", "", "", "", "", new Date(m.createdAt).toLocaleString("zh-TW")]);
+                        rows.push([m.productName, m.industry, m.funnel, sellingPoints, targetAudience, duration, appearance, "", "", "", "", "", new Date(m.createdAt).toLocaleString("zh-TW")]);
                       } else {
                         sorted.forEach((rec, idx) => {
                           const hook = hooks[rec.hookIndex];
@@ -691,6 +742,7 @@ export default function HistoryPage() {
                           const cta = ctas[rec.ctaIndex];
                           rows.push([
                             m.productName, m.industry, m.funnel,
+                            sellingPoints, targetAudience, duration, appearance,
                             `#${idx + 1}`,
                             String(rec.score),
                             hook?.text ?? "",

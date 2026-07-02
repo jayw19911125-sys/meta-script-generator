@@ -15,6 +15,7 @@ import {
   listScriptMatrixPaged,
   deleteScriptMatrix,
   batchDeleteScriptMatrix,
+  getHistoryStats,
 } from "../db";
 import {
   generateHooks,
@@ -273,6 +274,10 @@ export const scriptRouter = router({
     .mutation(async ({ ctx, input }) => {
       await batchDeleteScriptHistory(ctx.user.id, input.ids);
       return { success: true, count: input.ids.length } as const;
+    }),
+  historyStats: approvedProcedure
+    .query(async ({ ctx }) => {
+      return await getHistoryStats(ctx.user.id);
     }),
 });
 
