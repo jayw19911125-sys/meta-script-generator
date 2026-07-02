@@ -5,28 +5,32 @@
 //
 // 設計原則：通知失敗不中斷主流程（soft failure），僅記錄 console.warn
 
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { ENV } from "./_core/env";
 
-// ========== 常數 ==========
-const SLACK_CHANNEL_ID = "C0AUR4QJ07Q"; // #影音製作
-const MONDAY_BOARD_ID = 5027852889;
-const MONDAY_STATUS_COLUMN_ID = "color_mm2gg7qh"; // 現況欄位
-const MONDAY_STATUS_LABEL_ID = 12; // 「腳本確認中」
+const execFileAsync = promisify(execFile);
 
-// ========== 工具函數：呼叫 MCP ==========
-function callMcp(server: string, tool: string, input: Record<string, unknown>): unknown {
+// ========== 常數（來源：環境變數，未設定時採用預設值，見 server/_core/env.ts 與 .env.example）==========
+const SLACK_CHANNEL_ID = ENV.slackChannelId; // #影音製作
+const MONDAY_BOARD_ID = ENV.mondayBoardId;
+const MONDAY_STATUS_COLUMN_ID = ENV.mondayStatusColumnId; // 現況欄位
+const MONDAY_STATUS_LABEL_ID = ENV.mondayStatusLabelId; // 「腳本確認中」
+
+// ========== 工具函數：呼叫 MCP（非同步 execFile，不經 shell）==========
+// JSON 直接作為 --input 的 argv 參數傳入（與原本 `--input "$(cat tmp)"` 展開後
+// 送達 CLI 的介面完全相同），不再阻塞 event loop、無 shell 逸出風險、也不需暫存檔。
+// 注意：單一 argv 仍受 Linux MAX_ARG_STRLEN（約 128KiB）限制，與舊實作相同。
+async function callMcp(server: string, tool: string, input: Record<string, unknown>): Promise<unknown> {
   const inputJson = JSON.stringify(input);
-  const tmpFile = `/tmp/notify_mcp_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
-  require("fs").writeFileSync(tmpFile, inputJson, "utf-8");
-  try {
-    const cmd = `manus-mcp-cli tool call ${tool} --server ${server} --input "$(cat ${tmpFile})"`;
-    const result = execSync(cmd, { encoding: "utf-8", timeout: 30000, shell: "/bin/bash" });
-    const match = result.match(/Tool execution result:\n([\s\S]+)/);
-    if (!match) return null;
-    try { return JSON.parse(match[1].trim()); } catch { return match[1].trim(); }
-  } finally {
-    try { require("fs").unlinkSync(tmpFile); } catch { /* ignore */ }
-  }
+  const { stdout } = await execFileAsync(
+    "manus-mcp-cli",
+    ["tool", "call", tool, "--server", server, "--input", inputJson],
+    { encoding: "utf-8", timeout: 30000, maxBuffer: 16 * 1024 * 1024 }
+  );
+  const match = stdout.match(/Tool execution result:\n([\s\S]+)/);
+  if (!match) return null;
+  try { return JSON.parse(match[1].trim()); } catch { return match[1].trim(); }
 }
 
 // ========== Slack 通知 ==========
@@ -55,7 +59,7 @@ export async function notifySlackScriptCreated(params: {
 
 _請涵勻確認客戶版內容，確認後更新 Monday 狀態為「對稿中」_`;
 
-    callMcp("slack", "slack_send_message", {
+    await callMcp("slack", "slack_send_message", {
       channel_id: SLACK_CHANNEL_ID,
       text: message,
     });
@@ -75,10 +79,10 @@ export async function updateMondayScriptStatus(params: {
     const { clientName, notionUrl } = params;
 
     // Step 1: 搜尋 Monday 看板中包含客戶名稱的項目
-    const boardData = callMcp("monday-com", "get_board_items_page", {
+    const boardData = (await callMcp("monday-com", "get_board_items_page", {
       boardId: MONDAY_BOARD_ID,
       limit: 100,
-    }) as { items?: Array<{ id: string; name: string }> } | null;
+    })) as { items?: Array<{ id: string; name: string }> } | null;
 
     if (!boardData?.items?.length) {
       console.warn(`[NotifyService] Monday 看板無法取得項目列表`);
@@ -107,7 +111,7 @@ export async function updateMondayScriptStatus(params: {
     }
 
     // Step 2: 更新現況欄位為「腳本確認中」
-    callMcp("monday-com", "change_item_column_values", {
+    await callMcp("monday-com", "change_item_column_values", {
       boardId: MONDAY_BOARD_ID,
       itemId: parseInt(matchedItem.id),
       columnValues: {
@@ -116,7 +120,7 @@ export async function updateMondayScriptStatus(params: {
     });
 
     // Step 3: 新增更新留言，附上 Notion 連結
-    callMcp("monday-com", "create_update", {
+    await callMcp("monday-com", "create_update", {
       itemId: parseInt(matchedItem.id),
       body: `📝 **腳本已生成完成**\n\nAI 腳本生成器已為此專案產出腳本，請至 Notion 確認：\n${notionUrl}\n\n現況已自動更新為「腳本確認中」，請涵勻確認客戶版內容後手動更新為「對稿中」。`,
     });

@@ -7,6 +7,9 @@ dist/
 build/
 *.dist
 
+# Notion knowledge cache (runtime-generated)
+.notion-cache/
+
 # Environment variables
 .env
 .env.local
