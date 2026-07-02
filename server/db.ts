@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lt, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, inArray, like, lt, lte, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -137,6 +137,12 @@ export async function deleteScriptMatrix(userId: number, id: number): Promise<vo
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot delete script matrix: database not available"); return; }
   await db.delete(scriptMatrix).where(and(eq(scriptMatrix.id, id), eq(scriptMatrix.userId, userId)));
+}
+export async function batchDeleteScriptMatrix(userId: number, ids: number[]): Promise<void> {
+  if (ids.length === 0) return;
+  const db = await getDb();
+  if (!db) { console.warn("[Database] Cannot batch delete script matrix: database not available"); return; }
+  await db.delete(scriptMatrix).where(and(inArray(scriptMatrix.id, ids), eq(scriptMatrix.userId, userId)));
 }
 
 // ========== Notion 同步記錄 CRUD ==========

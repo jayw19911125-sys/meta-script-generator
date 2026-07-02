@@ -12,6 +12,7 @@ import {
   insertScriptMatrix,
   listScriptMatrix,
   deleteScriptMatrix,
+  batchDeleteScriptMatrix,
 } from "../db";
 import {
   generateHooks,
@@ -395,5 +396,13 @@ export const matrixRouter = router({
     .mutation(async ({ ctx, input }) => {
       await deleteScriptMatrix(ctx.user.id, input.id);
       return { success: true } as const;
+    }),
+
+  // ===== 批次刪除矩陣歷史 =====
+  batchDeleteMatrix: approvedProcedure
+    .input(z.object({ ids: z.array(z.number().int().positive()).min(1).max(100) }))
+    .mutation(async ({ ctx, input }) => {
+      await batchDeleteScriptMatrix(ctx.user.id, input.ids);
+      return { success: true, count: input.ids.length } as const;
     }),
 });

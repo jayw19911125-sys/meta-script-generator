@@ -7,7 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw, Grid3X3, BookmarkPlus, ExternalLink } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw, Grid3X3, BookmarkPlus, ExternalLink, ArrowUpDown, SortAsc, SortDesc, ChevronRight, Info } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
@@ -91,9 +92,20 @@ export default function HistoryPage() {
     onSuccess: () => { utils.matrix.listMatrix.invalidate(); toast.success("已刪除"); },
     onError: () => toast.error("刪除失敗"),
   });
+  const batchDeleteMatrixMutation = trpc.matrix.batchDeleteMatrix.useMutation({
+    onSuccess: (data) => {
+      utils.matrix.listMatrix.invalidate();
+      setSelectedMatrixIds(new Set());
+      toast.success(`已刪除 ${data.count} 筆矩陣紀錄`);
+    },
+    onError: () => toast.error("批次刪除失敗"),
+  });
   const [expandedMatrixId, setExpandedMatrixId] = useState<number | null>(null);
   const [copiedMatrixId, setCopiedMatrixId] = useState<string | null>(null);
   const [matrixSearch, setMatrixSearch] = useState("");
+  const [matrixSort, setMatrixSort] = useState<"date_desc" | "name_asc" | "score_desc">("date_desc");
+  const [selectedMatrixIds, setSelectedMatrixIds] = useState<Set<number>>(new Set());
+  const [expandedChecklistId, setExpandedChecklistId] = useState<string | null>(null);
   const [notionSavedMatrixKey, setNotionSavedMatrixKey] = useState<string | null>(null);
   const [notionUrlMatrixMap, setNotionUrlMatrixMap] = useState<Record<string, string>>({});
 
@@ -481,7 +493,7 @@ export default function HistoryPage() {
             </Card>
           ) : (
             <div className="space-y-3">
-              {/* 矩陣搜尋列 */}
+              {/* 矩陣搜尋列 + 排序切換 + 全選批次刪除 */}
               <div className="flex flex-col sm:flex-row gap-2">
                 <div className="relative flex-1">
                   <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground/60 pointer-events-none" />
@@ -500,16 +512,47 @@ export default function HistoryPage() {
                     </button>
                   )}
                 </div>
+                {/* 排序切換 */}
+                <Select value={matrixSort} onValueChange={(v) => setMatrixSort(v as typeof matrixSort)}>
+                  <SelectTrigger className="h-8 w-full sm:w-36 text-xs bg-card border-border font-mono">
+                    <ArrowUpDown className="w-3 h-3 mr-1 text-muted-foreground" />
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date_desc" className="text-xs font-mono">最新優先</SelectItem>
+                    <SelectItem value="name_asc" className="text-xs font-mono">產品名稱 A→Z</SelectItem>
+                    <SelectItem value="score_desc" className="text-xs font-mono">推薦最高分</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               {/* 矩陣列表 */}
               {(() => {
-                const filtered = matrixSearch.trim()
-                  ? matrixHistory.filter(m =>
-                      m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
-                      m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
-                      m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
-                    )
-                  : matrixHistory;
+                const filtered = (() => {
+                  let list = matrixSearch.trim()
+                    ? matrixHistory.filter(m =>
+                        m.productName.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                        m.industry.toLowerCase().includes(matrixSearch.toLowerCase()) ||
+                        m.funnel.toLowerCase().includes(matrixSearch.toLowerCase())
+                      )
+                    : [...matrixHistory];
+                  if (matrixSort === "name_asc") {
+                    list = list.sort((a, b) => a.productName.localeCompare(b.productName, "zh-TW"));
+                  } else if (matrixSort === "score_desc") {
+                    list = list.sort((a, b) => {
+                      const getTopScore = (item: typeof a) => {
+                        try {
+                          const recs = JSON.parse(item.recommendationsJson) as Array<{ score?: number }>;
+                          return Math.max(0, ...recs.map(r => r.score ?? 0));
+                        } catch { return 0; }
+                      };
+                      return getTopScore(b) - getTopScore(a);
+                    });
+                  } else {
+                    // date_desc: 默認已是最新優先
+                    list = list.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+                  }
+                  return list;
+                })();
                 if (filtered.length === 0) {
                   return (
                     <div className="py-8 text-center">
@@ -517,8 +560,50 @@ export default function HistoryPage() {
                     </div>
                   );
                 }
+                const allFilteredIds = filtered.map(m => m.id);
+                const allSelected = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedMatrixIds.has(id));
+                const someSelected = selectedMatrixIds.size > 0;
                 return (
                   <div className="space-y-2">
+                    {/* 全選列 */}
+                    <div className="flex items-center justify-between px-1 py-1">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          id="matrix-select-all"
+                          checked={allSelected}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setSelectedMatrixIds(new Set(allFilteredIds));
+                            } else {
+                              setSelectedMatrixIds(new Set());
+                            }
+                          }}
+                          className="w-3.5 h-3.5"
+                        />
+                        <label htmlFor="matrix-select-all" className="text-[11px] text-muted-foreground font-mono cursor-pointer select-none">
+                          {allSelected ? "取消全選" : "全選"}
+                          {someSelected && ` (${selectedMatrixIds.size})`}
+                        </label>
+                      </div>
+                      {someSelected && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => {
+                            if (window.confirm(`確定刪除選取的 ${selectedMatrixIds.size} 筆矩陣紀錄？`)) {
+                              batchDeleteMatrixMutation.mutate({ ids: Array.from(selectedMatrixIds) });
+                            }
+                          }}
+                          disabled={batchDeleteMatrixMutation.isPending}
+                          className="h-7 px-2 text-[11px] text-destructive hover:text-destructive hover:bg-destructive/10 font-mono gap-1"
+                        >
+                          {batchDeleteMatrixMutation.isPending
+                            ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                            : <Trash2 className="w-3.5 h-3.5" />}
+                          刪除選取 ({selectedMatrixIds.size})
+                        </Button>
+                      )}
+                    </div>
                     {filtered.map((item) => {
               // 展開列表起始位置（下方繼續原有 map callback）
                 const isExpanded = expandedMatrixId === item.id;
@@ -535,10 +620,22 @@ export default function HistoryPage() {
                 } catch { /* ignore */ }
 
                 return (
-                  <Card key={item.id} className="bg-card border-border overflow-hidden">
+                  <Card key={item.id} className={`bg-card border-border overflow-hidden transition-colors ${selectedMatrixIds.has(item.id) ? "border-primary/50 bg-primary/5" : ""}`}>
                     <CardHeader className="pb-2 pt-3">
                       <div className="flex items-start justify-between gap-3">
-                        <div className="flex-1 min-w-0">
+                        <div className="flex items-start gap-2 flex-1 min-w-0">
+                          <Checkbox
+                            checked={selectedMatrixIds.has(item.id)}
+                            onCheckedChange={(checked) => {
+                              setSelectedMatrixIds(prev => {
+                                const next = new Set(prev);
+                                if (checked) next.add(item.id); else next.delete(item.id);
+                                return next;
+                              });
+                            }}
+                            className="w-3.5 h-3.5 mt-0.5 shrink-0"
+                          />
+                          <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-2 flex-wrap">
                             <CardTitle className="text-xs font-semibold text-foreground truncate">
                               {item.productName}
@@ -567,6 +664,7 @@ export default function HistoryPage() {
                               </>
                             )}
                           </div>
+                          </div>{/* end checkbox wrapper */}
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
                           {/* 重新生成：帶入完整欄位（包含 sellingPoints/targetAudience）跳轉矩陣頁 */}
@@ -791,6 +889,30 @@ export default function HistoryPage() {
                                   <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider mb-0.5">CTA #{rec.ctaIndex}</p>
                                   <p className="text-xs text-foreground/90 leading-relaxed">{ctas.find(c => c.index === rec.ctaIndex)?.text ?? "—"}</p>
                                 </div>
+                                {/* checklistNotes 評分依據折疊區塊 */}
+                                {rec.checklistNotes && rec.checklistNotes.trim() && (() => {
+                                  const checklistKey = `${item.id}-rec${idx}-checklist`;
+                                  const isChecklistOpen = expandedChecklistId === checklistKey;
+                                  return (
+                                    <div className="mt-1">
+                                      <button
+                                        onClick={() => setExpandedChecklistId(isChecklistOpen ? null : checklistKey)}
+                                        className="flex items-center gap-1 text-[10px] font-mono text-muted-foreground/60 hover:text-muted-foreground transition-colors"
+                                      >
+                                        <Info className="w-3 h-3" />
+                                        評分依據
+                                        {isChecklistOpen
+                                          ? <ChevronUp className="w-3 h-3" />
+                                          : <ChevronRight className="w-3 h-3" />}
+                                      </button>
+                                      {isChecklistOpen && (
+                                        <div className="mt-1.5 p-2 rounded bg-muted/40 border border-border/50">
+                                          <p className="text-[11px] text-muted-foreground leading-relaxed whitespace-pre-wrap font-mono">{rec.checklistNotes}</p>
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
                               </div>
                             ))
                           )}
