@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useLocation } from "wouter";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { parseGenerationError } from "@/lib/errorParser";
@@ -59,6 +60,7 @@ const STEP_BG: Record<Step, string> = {
 };
 
 export default function MatrixPage() {
+  const [, setLocation] = useLocation();
   const [currentStep, setCurrentStep] = useState<Step>("form");
   const [form, setForm] = useState<PromptInput>({
     industry: "",
@@ -189,6 +191,25 @@ export default function MatrixPage() {
       });
     },
   });
+
+  // 讀取 URL 參數自動填入表單（來自矩陣歷史「重新生成」按鈕）
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const productName = params.get("productName");
+    const industry = params.get("industry");
+    const funnel = params.get("funnel");
+    if (productName || industry || funnel) {
+      setForm(f => ({
+        ...f,
+        ...(productName ? { productName } : {}),
+        ...(industry ? { industry } : {}),
+        ...(funnel ? { funnel } : {}),
+      }));
+      // 清除 URL 參數，避免重新整理時重複填入
+      setLocation("/matrix", { replace: true });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const isAnyLoading = hooksMutation.isPending || bodiesMutation.isPending || ctasMutation.isPending || recsMutation.isPending || !!rerunningId;
 

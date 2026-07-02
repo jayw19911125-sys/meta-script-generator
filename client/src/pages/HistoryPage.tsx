@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw, Grid3X3 } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap, RefreshCw, Grid3X3, BookmarkPlus, ExternalLink } from "lucide-react";
 import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
@@ -92,6 +92,37 @@ export default function HistoryPage() {
     onError: () => toast.error("刪除失敗"),
   });
   const [expandedMatrixId, setExpandedMatrixId] = useState<number | null>(null);
+  const [copiedMatrixId, setCopiedMatrixId] = useState<string | null>(null);
+  const [notionSavedMatrixKey, setNotionSavedMatrixKey] = useState<string | null>(null);
+  const [notionUrlMatrixMap, setNotionUrlMatrixMap] = useState<Record<string, string>>({});
+
+  const saveMatrixToNotionMutation = trpc.notion.saveMatrixScript.useMutation({
+    onSuccess: (data, variables) => {
+      const key = `${variables.productName}-${variables.rankLabel ?? ""}`;
+      setNotionSavedMatrixKey(key);
+      if (data.notionUrl) setNotionUrlMatrixMap(prev => ({ ...prev, [key]: data.notionUrl! }));
+      toast.success("已存入 Notion 腳本庫！", {
+        action: data.notionUrl ? { label: "開啟", onClick: () => window.open(data.notionUrl!, "_blank") } : undefined,
+      });
+    },
+    onError: (err: { message: string }) => toast.error(`存入 Notion 失敗：${err.message}`),
+  });
+
+  const handleCopyMatrixRec = async (text: string, key: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = text;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      document.body.removeChild(ta);
+    }
+    setCopiedMatrixId(key);
+    setTimeout(() => setCopiedMatrixId(null), 2000);
+    toast.success("已複製推薦組合");
+  };
 
   const engineLabel = (engine: string) => {
     const map: Record<string, string> = {
@@ -498,6 +529,79 @@ export default function HistoryPage() {
                           </div>
                         </div>
                         <div className="flex items-center gap-0.5 shrink-0">
+                          {/* 重新生成：帶入 productName/industry/funnel 參數跳轉矩陣頁 */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => {
+                              const params = new URLSearchParams({
+                                productName: item.productName,
+                                industry: item.industry,
+                                funnel: item.funnel,
+                              });
+                              setLocation(`/matrix?${params.toString()}`);
+                            }}
+                            className="h-7 w-7 p-0 text-muted-foreground hover:text-foreground"
+                            title="以此設定重新生成矩陣"
+                          >
+                            <RefreshCw className="w-3.5 h-3.5" />
+                          </Button>
+                          {/* Notion 存入：存入最高分推薦組合 */}
+                          {(() => {
+                            if (recommendations.length === 0) return null;
+                            const topRec = recommendations[0];
+                            const hookMod = hooks.find(h => h.index === topRec.hookIndex);
+                            const bodyMod = bodies.find(b => b.index === topRec.bodyIndex);
+                            const ctaMod = ctas.find(c => c.index === topRec.ctaIndex);
+                            if (!hookMod || !bodyMod || !ctaMod) return null;
+                            const notionKey = `${item.productName}-rank${topRec.rank}`;
+                            const notionUrl = notionUrlMatrixMap[notionKey];
+                            const isSaved = notionSavedMatrixKey === notionKey;
+                            return (
+                              <>
+                                {notionUrl && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    onClick={() => window.open(notionUrl, "_blank")}
+                                    className="h-7 w-7 p-0 text-green-500 hover:text-green-400"
+                                    title="開啟 Notion 頁面"
+                                  >
+                                    <ExternalLink className="w-3.5 h-3.5" />
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => {
+                                    saveMatrixToNotionMutation.mutate({
+                                      productName: item.productName,
+                                      funnel: item.funnel,
+                                      duration: "30",
+                                      industry: item.industry,
+                                      rankLabel: `推薦#${topRec.rank} · score ${topRec.score}`,
+                                      score: topRec.score,
+                                      checklistNotes: topRec.checklistNotes,
+                                      hook: { text: hookMod.text, shotDirection: hookMod.shotDirection, soundEffect: hookMod.soundEffect, performanceNote: hookMod.performanceNote },
+                                      body: { text: bodyMod.text, shotDirection: bodyMod.shotDirection, soundEffect: bodyMod.soundEffect, performanceNote: bodyMod.performanceNote },
+                                      cta: { text: ctaMod.text, shotDirection: ctaMod.shotDirection, soundEffect: ctaMod.soundEffect, performanceNote: ctaMod.performanceNote },
+                                    });
+                                  }}
+                                  disabled={saveMatrixToNotionMutation.isPending || isSaved}
+                                  className={`h-7 w-7 p-0 ${
+                                    isSaved ? "text-green-500" : "text-muted-foreground hover:text-foreground"
+                                  }`}
+                                  title={isSaved ? "已存入 Notion" : "存入 Notion 腳本庫（最高分推薦組合）"}
+                                >
+                                  {saveMatrixToNotionMutation.isPending
+                                    ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                                    : isSaved
+                                      ? <CheckCircle2 className="w-3.5 h-3.5" />
+                                      : <BookmarkPlus className="w-3.5 h-3.5" />}
+                                </Button>
+                              </>
+                            );
+                          })()}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -540,6 +644,29 @@ export default function HistoryPage() {
                                     </Badge>
                                   )}
                                 </div>
+                                {/* 一鍵複製按鈕 */}
+                                {(() => {
+                                  const hookText = hooks.find(h => h.index === rec.hookIndex)?.text ?? "";
+                                  const bodyText = bodies.find(b => b.index === rec.bodyIndex)?.text ?? "";
+                                  const ctaText = ctas.find(c => c.index === rec.ctaIndex)?.text ?? "";
+                                  const copyKey = `${item.id}-${idx}`;
+                                  const copyText = `【Hook】\n${hookText}\n\n【Body】\n${bodyText}\n\n【CTA】\n${ctaText}`;
+                                  return (
+                                    <div className="flex justify-end">
+                                      <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => handleCopyMatrixRec(copyText, copyKey)}
+                                        className="h-6 px-2 text-[10px] text-muted-foreground hover:text-foreground font-mono gap-1"
+                                        title="複製 Hook+Body+CTA 合併文案"
+                                      >
+                                        {copiedMatrixId === copyKey
+                                          ? <><CheckCircle2 className="w-3 h-3 text-green-500" />已複製</>
+                                          : <><Copy className="w-3 h-3" />複製組合</>}
+                                      </Button>
+                                    </div>
+                                  );
+                                })()}
                                 {/* Hook */}
                                 <div>
                                   <p className="text-[10px] font-mono text-muted-foreground/60 uppercase tracking-wider mb-0.5">Hook #{rec.hookIndex}</p>
