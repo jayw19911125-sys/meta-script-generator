@@ -70,7 +70,8 @@ export default function HistoryPage() {
     setAllItems([]);
     setHasMore(false);
     setNextCursor(null);
-  }, []);
+    setSelectedScriptIds(new Set());
+  }, []);  // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleLoadMore = () => {
     if (!nextCursor || isLoadingMore) return;
@@ -80,8 +81,9 @@ export default function HistoryPage() {
 
   const [selectedScriptIds, setSelectedScriptIds] = useState<Set<number>>(new Set());
   const deleteMutation = trpc.script.deleteHistory.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       utils.script.history.invalidate();
+      setSelectedScriptIds(prev => { const next = new Set(prev); next.delete(variables.id); return next; });
       toast.success("已刪除");
     },
     onError: () => toast.error("刪除失敗"),
@@ -294,6 +296,32 @@ export default function HistoryPage() {
                   <X className="w-3.5 h-3.5 mr-1" />清除篩選
                 </Button>
               )}
+              {/* 匯出 CSV */}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  if (allItems.length === 0) { toast.error("無腳本紀錄可匯出"); return; }
+                  const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "AI 引擎", "腳本內容", "建立時間"]];
+                  allItems.forEach(item => {
+                    rows.push([
+                      item.productName, item.industry, item.funnel, item.engine,
+                      (item.finalOutput ?? "").replace(/\n/g, " "),
+                      new Date(item.createdAt).toLocaleString("zh-TW"),
+                    ]);
+                  });
+                  const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
+                  const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
+                  const url = URL.createObjectURL(blob);
+                  const a = document.createElement("a");
+                  a.href = url; a.download = `腳本歷史_${new Date().toISOString().slice(0,10)}.csv`;
+                  a.click(); URL.revokeObjectURL(url);
+                  toast.success("匯出 CSV 成功");
+                }}
+                className="h-8 px-3 text-xs font-mono text-muted-foreground hover:text-foreground shrink-0 gap-1.5"
+              >
+                <FileDown className="w-3.5 h-3.5" />匯出 CSV
+              </Button>
             </div>
             {/* 日期範圍篩選 */}
             <div className="flex items-center gap-2">
@@ -368,6 +396,9 @@ export default function HistoryPage() {
                       <label htmlFor="script-select-all" className="text-[11px] text-muted-foreground font-mono cursor-pointer select-none">
                         {allSelected ? "取消全選" : "全選"}{someSelected && ` (${selectedScriptIds.size})`}
                       </label>
+                      {hasMore && allSelected && (
+                        <span className="text-[10px] text-amber-500/80 font-mono">⚠️ 尚有未載入的紀錄</span>
+                      )}
                     </div>
                     {someSelected && (
                       <Button
@@ -627,13 +658,14 @@ export default function HistoryPage() {
                     <SelectItem value="score_desc" className="text-xs font-mono">推薦最高分</SelectItem>
                   </SelectContent>
                 </Select>
-                {/* 匙出 CSV */}
+                {/* 匯出 CSV */}
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => {
-                    if (allMatrixItems.length === 0) { toast.error("無矩陣紀錄可匙出"); return; }
-                    const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "推薦組數", "最高分", "Hook", "Body", "CTA", "建立時間"]];
+                    if (allMatrixItems.length === 0) { toast.error("無矩陣紀錄可匯出"); return; }
+                    // 每組推薦各佔一行，方便後續分析
+                    const rows: string[][] = [["產品名稱", "產業", "漏斗層級", "推薦排名", "評分", "Hook", "Body", "CTA", "建立時間"]];
                     allMatrixItems.forEach(m => {
                       let recs: MatrixRecommendation[] = [];
                       let hooks: ScriptModule[] = [];
@@ -644,31 +676,37 @@ export default function HistoryPage() {
                       try { bodies = JSON.parse(m.bodiesJson ?? "[]"); } catch { bodies = []; }
                       try { ctas = JSON.parse(m.ctasJson ?? "[]"); } catch { ctas = []; }
                       const sorted = [...recs].sort((a, b) => b.score - a.score);
-                      const top = sorted[0];
-                      const hook = top ? hooks[top.hookIndex] : null;
-                      const body = top ? bodies[top.bodyIndex] : null;
-                      const cta = top ? ctas[top.ctaIndex] : null;
-                      rows.push([
-                        m.productName, m.industry, m.funnel,
-                        String(sorted.length),
-                        top ? String(top.score) : "",
-                        hook?.text ?? "",
-                        body?.text ?? "",
-                        cta?.text ?? "",
-                        new Date(m.createdAt).toLocaleString("zh-TW"),
-                      ]);
+                      if (sorted.length === 0) {
+                        rows.push([m.productName, m.industry, m.funnel, "", "", "", "", "", new Date(m.createdAt).toLocaleString("zh-TW")]);
+                      } else {
+                        sorted.forEach((rec, idx) => {
+                          const hook = hooks[rec.hookIndex];
+                          const body = bodies[rec.bodyIndex];
+                          const cta = ctas[rec.ctaIndex];
+                          rows.push([
+                            m.productName, m.industry, m.funnel,
+                            `#${idx + 1}`,
+                            String(rec.score),
+                            hook?.text ?? "",
+                            body?.text ?? "",
+                            cta?.text ?? "",
+                            new Date(m.createdAt).toLocaleString("zh-TW"),
+                          ]);
+                        });
+                      }
                     });
+                    const totalRecs = rows.length - 1;
                     const csv = rows.map(r => r.map(c => `"${c.replace(/"/g, '""')}"`).join(",")).join("\n");
                     const blob = new Blob(["\uFEFF" + csv], { type: "text/csv;charset=utf-8;" });
                     const url = URL.createObjectURL(blob);
                     const a = document.createElement("a");
                     a.href = url; a.download = `矩陣歷史_${new Date().toISOString().slice(0,10)}.csv`;
                     a.click(); URL.revokeObjectURL(url);
-                    toast.success("匙出 CSV 成功");
+                    toast.success(`匯出 CSV 成功（共 ${totalRecs} 筆推薦組合）`);
                   }}
                   className="h-8 px-3 text-xs font-mono text-muted-foreground hover:text-foreground shrink-0 gap-1.5"
                 >
-                  <FileDown className="w-3.5 h-3.5" />匙出 CSV
+                  <FileDown className="w-3.5 h-3.5" />匯出 CSV
                 </Button>
               </div>
               {/* 矩陣列表 */}
@@ -730,6 +768,9 @@ export default function HistoryPage() {
                           {allSelected ? "取消全選" : "全選"}
                           {someSelected && ` (${selectedMatrixIds.size})`}
                         </label>
+                        {matrixHasMore && allSelected && (
+                          <span className="text-[10px] text-amber-500/80 font-mono">⚠️ 尚有未載入的紀錄</span>
+                        )}
                       </div>
                       {someSelected && (
                         <Button
