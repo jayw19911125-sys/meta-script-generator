@@ -7,11 +7,13 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays } from "lucide-react";
+import { History, Trash2, Copy, ChevronDown, ChevronUp, Loader2, FileDown, CheckCircle2, Search, X, GitCompare, CalendarDays, Zap } from "lucide-react";
+import { useLocation } from "wouter";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { FUNNELS } from "@shared/scriptTypes";
 
 export default function HistoryPage() {
+  const [, setLocation] = useLocation();
   const [expandedId, setExpandedId] = useState<number | null>(null);
   const [showGptId, setShowGptId] = useState<number | null>(null);
   const [keyword, setKeyword] = useState("");
@@ -148,13 +150,27 @@ export default function HistoryPage() {
       ) : !history || history.length === 0 ? (
         <Card className="bg-card border-border">
           <CardContent className="flex flex-col items-center justify-center py-16 gap-3">
-            <History className="w-8 h-8 text-muted-foreground/30" />
-            <p className="text-xs text-muted-foreground">
-              {hasFilters ? "找不到符合條件的紀錄" : "尚無歷史紀錄"}
-            </p>
-            <p className="text-[11px] text-muted-foreground/60 font-mono">
-              {hasFilters ? "try other keywords or clear filters" : "scripts will be saved here automatically"}
-            </p>
+            <div className="w-10 h-10 rounded border border-border bg-muted/50 flex items-center justify-center">
+              <History className="w-5 h-5 text-muted-foreground/50" />
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-muted-foreground">
+                {hasFilters ? "找不到符合條件的紀錄" : "尚無歷史紀錄"}
+              </p>
+              <p className="text-[11px] text-muted-foreground/60 font-mono mt-0.5">
+                {hasFilters ? "try other keywords or clear filters" : "scripts will be saved here automatically"}
+              </p>
+            </div>
+            {!hasFilters && (
+              <Button
+                size="sm"
+                onClick={() => setLocation("/")}
+                className="mt-1 h-8 text-xs bg-primary text-primary-foreground hover:bg-primary/90 border border-primary/80"
+              >
+                <Zap className="w-3.5 h-3.5 mr-1.5" />
+                立即生成第一支腳本
+              </Button>
+            )}
           </CardContent>
         </Card>
       ) : (

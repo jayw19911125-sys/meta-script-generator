@@ -20,6 +20,7 @@ import { Zap, Copy, Download, ChevronDown, ChevronUp, Loader2, CheckCircle2, Spa
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useGenerating } from "@/components/DashboardLayout";
+import { Streamdown } from "streamdown";
 
 type PresetKey = "premium" | "standard" | "lite";
 
@@ -179,10 +180,10 @@ export default function Home() {
                     <button
                       key={key}
                       onClick={() => handlePreset(key)}
-                      className={`p-2.5 rounded-lg border text-left transition-all ${
+                      className={`p-2.5 rounded border text-left transition-all ${
                         isSelected
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card hover:border-primary/50 text-muted-foreground hover:text-foreground"
+                          ? "border-l-2 border-primary bg-muted text-foreground"
+                          : "border-border bg-card hover:border-border/80 hover:bg-muted/50 text-muted-foreground hover:text-foreground"
                       }`}
                     >
                       <div className="text-xs font-semibold">{preset.label}</div>
@@ -481,8 +482,8 @@ export default function Home() {
                   </div>
                 </div>
               ) : output ? (
-                <div className="script-output text-foreground/90 bg-background/50 rounded-lg p-4 max-h-[50dvh] lg:max-h-[600px] overflow-y-auto">
-                  {output}
+                <div className="script-output text-foreground/90 bg-background/50 rounded border border-border/30 p-4 max-h-[50dvh] lg:max-h-[600px] overflow-y-auto prose prose-sm prose-invert max-w-none">
+                  <Streamdown>{output}</Streamdown>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center py-16 gap-3 text-center">
