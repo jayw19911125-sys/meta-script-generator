@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { parseGenerationError } from "@/lib/errorParser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -110,7 +111,8 @@ export default function MatrixPage() {
       setCurrentStep("hooks");
       toast.success("Hook 生成完成！");
     },
-    onError: (err: { message: string }) => toast.error(`Hook 生成失敗：${err.message}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
   });
 
   const bodiesMutation = trpc.matrix.generateBodies.useMutation({
@@ -120,7 +122,8 @@ export default function MatrixPage() {
       setCurrentStep("bodies");
       toast.success("Body 生成完成！");
     },
-    onError: (err: { message: string }) => toast.error(`Body 生成失敗：${err.message}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
   });
 
   const ctasMutation = trpc.matrix.generateCtas.useMutation({
@@ -130,7 +133,8 @@ export default function MatrixPage() {
       setCurrentStep("ctas");
       toast.success("CTA 生成完成！");
     },
-    onError: (err: { message: string }) => toast.error(`CTA 生成失敗：${err.message}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
   });
 
   const recsMutation = trpc.matrix.generateRecommendations.useMutation({
@@ -140,7 +144,8 @@ export default function MatrixPage() {
       setCurrentStep("recommendations");
       toast.success("AI 推薦評分完成！");
     },
-    onError: (err: { message: string }) => toast.error(`推薦評分失敗：${err.message}`),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => { const p = parseGenerationError(err); toast.error(p.title, { description: p.description, duration: p.canRetry ? 5000 : 8000 }); },
   });
 
   const isAnyLoading = hooksMutation.isPending || bodiesMutation.isPending || ctasMutation.isPending || recsMutation.isPending || !!rerunningId;

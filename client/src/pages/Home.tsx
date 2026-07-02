@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { useScriptExport } from "@/hooks/useScriptExport";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
+import { parseGenerationError } from "@/lib/errorParser";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -118,9 +119,18 @@ export default function Home() {
       navigator.vibrate?.(200);
       toast.success("腳本生成完成！");
     },
-    onError: (err: { message: string }) => {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    onError: (err: any) => {
       setIsGenerating(false);
-      toast.error(`生成失敗：${err.message}`);
+      const parsed = parseGenerationError(err);
+      toast.error(parsed.title, {
+        description: parsed.description,
+        duration: parsed.canRetry ? 5000 : 8000,
+        action: parsed.retryLabel && parsed.canRetry ? {
+          label: parsed.retryLabel,
+          onClick: () => handleSubmit(),
+        } : undefined,
+      });
     },
   });
 

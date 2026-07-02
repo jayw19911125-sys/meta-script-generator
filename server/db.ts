@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, like, lte, or } from "drizzle-orm";
+import { and, desc, eq, gte, like, lt, lte, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertNotionSyncLog, InsertScriptHistory, InsertScriptMatrixRow, InsertUser, notionSyncLogs, scriptHistory, scriptMatrix, users } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -65,8 +65,8 @@ export async function insertScriptHistory(record: InsertScriptHistory): Promise<
 
 export async function listScriptHistory(
   userId: number,
-  limit = 50,
-  opts?: { keyword?: string; funnel?: string; dateFrom?: string; dateTo?: string }
+  limit = 20,
+  opts?: { keyword?: string; funnel?: string; dateFrom?: string; dateTo?: string; cursor?: number }
 ) {
   const db = await getDb();
   if (!db) { console.warn("[Database] Cannot list script history: database not available"); return []; }
@@ -96,10 +96,19 @@ export async function listScriptHistory(
       conditions.push(lte(scriptHistory.createdAt, toDate));
     }
   }
-  return db.select().from(scriptHistory)
+  // Cursor-based pagination: fetch records with id < cursor (older records)
+  if (opts?.cursor != null) {
+    conditions.push(lt(scriptHistory.id, opts.cursor));
+  }
+  // Fetch limit+1 to determine if there are more pages
+  const rows = await db.select().from(scriptHistory)
     .where(and(...conditions))
     .orderBy(desc(scriptHistory.createdAt))
-    .limit(limit);
+    .limit(limit + 1);
+  const hasMore = rows.length > limit;
+  const items = hasMore ? rows.slice(0, limit) : rows;
+  const nextCursor = hasMore ? items[items.length - 1].id : null;
+  return { items, hasMore, nextCursor };
 }
 
 export async function deleteScriptHistory(userId: number, id: number): Promise<void> {

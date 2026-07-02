@@ -1,4 +1,4 @@
-import { useState, useDeferredValue } from "react";
+import { useState, useDeferredValue, useCallback, useEffect, useRef } from "react";
 import { toast } from "sonner";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -32,9 +32,52 @@ export default function HistoryPage() {
     setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const { data: history, isLoading } = trpc.script.history.useQuery(
-    { keyword: deferredKeyword || undefined, funnel: funnelFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
-  );
+  // Cursor-based pagination state
+  const [cursor, setCursor] = useState<number | undefined>(undefined);
+  const [allItems, setAllItems] = useState<Array<{
+    id: number; userId: number; productName: string; industry: string; funnel: string;
+    engine: string; gptOutput: string | null; finalOutput: string; inputSnapshot: string | null; createdAt: Date;
+  }>>([]);
+  const [hasMore, setHasMore] = useState(false);
+  const [nextCursor, setNextCursor] = useState<number | null>(null);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+
+  const queryInput = { keyword: deferredKeyword || undefined, funnel: funnelFilter || undefined, dateFrom: dateFrom || undefined, dateTo: dateTo || undefined, cursor };
+
+  const prevCursorRef = useRef<number | undefined>(undefined);
+  const { data: historyData, isLoading } = trpc.script.history.useQuery(queryInput);
+
+  useEffect(() => {
+    if (!historyData || Array.isArray(historyData)) return;
+    if (prevCursorRef.current === cursor && cursor === undefined) {
+      // Same fresh query result — still replace
+      setAllItems(historyData.items);
+    } else if (cursor !== undefined && cursor !== prevCursorRef.current) {
+      // Load more: append
+      setAllItems(prev => [...prev, ...historyData.items]);
+    } else {
+      // Fresh query (filter changed): replace all
+      setAllItems(historyData.items);
+    }
+    prevCursorRef.current = cursor;
+    setHasMore(historyData.hasMore);
+    setNextCursor(historyData.nextCursor);
+    setIsLoadingMore(false);
+  }, [historyData, cursor]);
+
+  // Reset pagination when filters change
+  const resetPagination = useCallback(() => {
+    setCursor(undefined);
+    setAllItems([]);
+    setHasMore(false);
+    setNextCursor(null);
+  }, []);
+
+  const handleLoadMore = () => {
+    if (!nextCursor || isLoadingMore) return;
+    setIsLoadingMore(true);
+    setCursor(nextCursor);
+  };
 
   const deleteMutation = trpc.script.deleteHistory.useMutation({
     onSuccess: () => {
@@ -61,6 +104,8 @@ export default function HistoryPage() {
   };
 
   const hasFilters = !!keyword || !!funnelFilter || !!dateFrom || !!dateTo;
+  // Use allItems for rendering; fall back to historyData.items on first load
+  const history = allItems.length > 0 ? allItems : (historyData && !Array.isArray(historyData) ? historyData.items : []);
 
   return (
     <div className="p-4 md:p-6 max-w-4xl mx-auto space-y-5">
@@ -89,7 +134,7 @@ export default function HistoryPage() {
             <Input
               placeholder="搜尋產品名稱、產業或腳本內容..."
               value={keyword}
-              onChange={e => setKeyword(e.target.value)}
+              onChange={e => { setKeyword(e.target.value); resetPagination(); }}
               className="pl-8 pr-8 h-8 text-xs bg-input border-border"
             />
             {keyword && (
@@ -101,7 +146,7 @@ export default function HistoryPage() {
               </button>
             )}
           </div>
-          <Select value={funnelFilter} onValueChange={setFunnelFilter}>
+          <Select value={funnelFilter} onValueChange={v => { setFunnelFilter(v); resetPagination(); }}>
             <SelectTrigger className="h-8 text-xs bg-input border-border w-full sm:w-36">
               <SelectValue placeholder="全部漏斗" />
             </SelectTrigger>
@@ -116,7 +161,7 @@ export default function HistoryPage() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => { setKeyword(""); setFunnelFilter(""); setDateFrom(""); setDateTo(""); }}
+              onClick={() => { setKeyword(""); setFunnelFilter(""); setDateFrom(""); setDateTo(""); resetPagination(); }}
               className="h-8 px-3 text-xs text-muted-foreground hover:text-foreground shrink-0"
             >
               <X className="w-3.5 h-3.5 mr-1" />清除篩選
@@ -129,7 +174,7 @@ export default function HistoryPage() {
           <Input
             type="date"
             value={dateFrom}
-            onChange={e => setDateFrom(e.target.value)}
+            onChange={e => { setDateFrom(e.target.value); resetPagination(); }}
             className="h-8 text-xs bg-input border-border w-full sm:w-40"
             title="開始日期"
           />
@@ -137,7 +182,7 @@ export default function HistoryPage() {
           <Input
             type="date"
             value={dateTo}
-            onChange={e => setDateTo(e.target.value)}
+            onChange={e => { setDateTo(e.target.value); resetPagination(); }}
             className="h-8 text-xs bg-input border-border w-full sm:w-40"
             title="結束日期"
           />
@@ -318,6 +363,24 @@ export default function HistoryPage() {
               </Card>
             );
           })}
+          {/* 載入更多按鈕 */}
+          {hasMore && (
+            <div className="flex justify-center pt-2 pb-1">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleLoadMore}
+                disabled={isLoadingMore}
+                className="h-8 text-xs border-border text-muted-foreground hover:text-foreground font-mono"
+              >
+                {isLoadingMore ? (
+                  <><Loader2 className="w-3.5 h-3.5 mr-1.5 animate-spin" />載入中...</>
+                ) : (
+                  <><ChevronDown className="w-3.5 h-3.5 mr-1.5" />載入更多紀錄</>
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
     </div>

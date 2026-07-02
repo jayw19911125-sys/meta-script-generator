@@ -1,5 +1,7 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { approvedProcedure, router } from "../_core/trpc";
+import { llmRateLimiter, matrixRateLimiter } from "../rateLimiter";
 import { saveScriptToNotion } from "../notionWriteService";
 import type { NotionSaveInput } from "../notionWriteService";
 import { runPostSaveNotifications } from "../notifyService";
@@ -91,6 +93,15 @@ export const scriptRouter = router({
       engineConfig: engineConfigSchema.optional(),
     }))
     .mutation(async ({ ctx, input }) => {
+      // Rate limit: 10 LLM calls per user per minute
+      const rl = llmRateLimiter.check(ctx.user.id);
+      if (!rl.allowed) {
+        const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000);
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `RATE_LIMIT|${retryAfterSec}|${rl.limit}`,
+        });
+      }
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       const { gptOutput, finalOutput, knowledgeHit, quality } = await runDualEngine(input.input, config);
       const historyId = await persist(
@@ -239,9 +250,10 @@ export const scriptRouter = router({
       funnel: z.string().max(100).optional(),
       dateFrom: z.string().max(20).optional(),
       dateTo: z.string().max(20).optional(),
+      cursor: z.number().int().positive().optional(),
     }).optional())
     .query(({ ctx, input }) =>
-      listScriptHistory(ctx.user.id, 50, input ?? {})
+      listScriptHistory(ctx.user.id, 20, input ?? {})
     ),
 
   deleteHistory: approvedProcedure
@@ -268,11 +280,15 @@ export const matrixRouter = router({
       input: promptInputSchema,
       engineConfig: engineConfigSchema.optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const rl = matrixRateLimiter.check(ctx.user.id);
+      if (!rl.allowed) {
+        const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000);
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `RATE_LIMIT|${retryAfterSec}|${rl.limit}` });
+      }
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       return await generateMatrixHooks(input.input, config);
     }),
-
   // Step 2: 產出 3 個 Body
   generateBodies: approvedProcedure
     .input(z.object({
@@ -280,11 +296,15 @@ export const matrixRouter = router({
       hooksJson: z.string(),
       engineConfig: engineConfigSchema.optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const rl = matrixRateLimiter.check(ctx.user.id);
+      if (!rl.allowed) {
+        const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000);
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `RATE_LIMIT|${retryAfterSec}|${rl.limit}` });
+      }
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       return await generateMatrixBodies(input.input, input.hooksJson, config);
     }),
-
   // Step 3: 產出 3 個 CTA
   generateCtas: approvedProcedure
     .input(z.object({
@@ -292,11 +312,15 @@ export const matrixRouter = router({
       bodiesJson: z.string(),
       engineConfig: engineConfigSchema.optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const rl = matrixRateLimiter.check(ctx.user.id);
+      if (!rl.allowed) {
+        const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000);
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `RATE_LIMIT|${retryAfterSec}|${rl.limit}` });
+      }
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       return await generateMatrixCtas(input.input, input.bodiesJson, config);
     }),
-
   // Step 4: AI 推薦與評分
   generateRecommendations: approvedProcedure
     .input(z.object({
@@ -304,7 +328,12 @@ export const matrixRouter = router({
       matrixJson: z.string(),
       engineConfig: engineConfigSchema.optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const rl = matrixRateLimiter.check(ctx.user.id);
+      if (!rl.allowed) {
+        const retryAfterSec = Math.ceil(rl.retryAfterMs / 1000);
+        throw new TRPCError({ code: "TOO_MANY_REQUESTS", message: `RATE_LIMIT|${retryAfterSec}|${rl.limit}` });
+      }
       const config = input.engineConfig ?? DEFAULT_CONFIG;
       return await generateMatrixRecommendations(input.input, input.matrixJson, config);
     }),

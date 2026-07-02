@@ -149,7 +149,10 @@ function DashboardLayoutContent({ children, setSidebarWidth }: DashboardLayoutCo
     const v = localStorage.getItem("history-last-seen");
     return v ? parseInt(v, 10) : 0;
   });
-  const unreadCount = (historyQuery.data ?? []).filter(
+  const historyItems = historyQuery.data && !Array.isArray(historyQuery.data)
+    ? historyQuery.data.items
+    : (historyQuery.data ?? []) as Array<{ createdAt: string | number | Date }>;
+  const unreadCount = historyItems.filter(
     (s: { createdAt: string | number | Date }) => new Date(s.createdAt).getTime() > lastSeenAt
   ).length;
 
