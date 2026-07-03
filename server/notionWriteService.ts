@@ -8,11 +8,16 @@
 //
 // 依 AI 代理人必讀規則：落點為 B2 客戶腳本庫（頁面 ID: 37b97a06fae5818c91d1c2bd91baa373）
 
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
+import { ENV } from "./_core/env";
+
+const execFileAsync = promisify(execFile);
 
 // ========== 常數 ==========
-// 注意：notion-create-pages 的 parent.page_id 必須使用帶連字號的格式
-const B2_SCRIPT_LIBRARY_PAGE_ID = "37b97a06-fae5-818c-91d1-c2bd91baa373";
+// 注意：notion-create-pages 的 parent.page_id 必須使用帶連字號的格式。
+// 來源：環境變數 NOTION_B2_SCRIPT_LIBRARY_PAGE_ID（未設定時採用預設值，見 server/_core/env.ts 與 .env.example）
+const B2_SCRIPT_LIBRARY_PAGE_ID = ENV.notionB2ScriptLibraryPageId;
 
 // ========== 型別 ==========
 export interface NotionSaveInput {
@@ -40,41 +45,39 @@ export interface NotionSaveResult {
   error?: string;
 }
 
-// ========== 工具函數：呼叫 Notion MCP ==========
-// 使用 stdin 傳遞 JSON，避免 shell 引號逸出問題
-function callNotionMcp(tool: string, input: Record<string, unknown>): unknown {
+// ========== 工具函數：呼叫 Notion MCP（非同步 execFile，不經 shell）==========
+// JSON 直接作為 --input 的 argv 參數傳入 manus-mcp-cli（與原本 `--input "$(cat tmp)"`
+// 展開後送達 CLI 的介面完全相同），不阻塞 event loop、無 shell 引號逸出問題、也不需暫存檔。
+// 注意：單一 argv 仍受 Linux MAX_ARG_STRLEN（約 128KiB）限制，與舊實作相同。
+async function callNotionMcp(tool: string, input: Record<string, unknown>): Promise<unknown> {
   const inputJson = JSON.stringify(input);
-  // 將 JSON 寫入暫存檔，再用 --input-file 讀取，避免 shell 特殊字元問題
-  const tmpFile = `/tmp/notion_mcp_input_${Date.now()}.json`;
-  require("fs").writeFileSync(tmpFile, inputJson, "utf-8");
-  try {
-    const cmd = `manus-mcp-cli tool call ${tool} --server notion --input "$(cat ${tmpFile})"`;
-    const result = execSync(cmd, { encoding: "utf-8", timeout: 60000, shell: "/bin/bash" });
-    const match = result.match(/Tool execution result:\n([\s\S]+)/);
-    if (!match) throw new Error(`Notion MCP ${tool} 回傳格式異常：${result.slice(0, 300)}`);
-    const parsed = JSON.parse(match[1].trim());
-    if (parsed?.error) throw new Error(`Notion MCP ${tool} 回傳錯誤：${JSON.stringify(parsed.error)}`);
-    return parsed;
-  } finally {
-    try { require("fs").unlinkSync(tmpFile); } catch { /* ignore */ }
-  }
+  const { stdout } = await execFileAsync(
+    "manus-mcp-cli",
+    ["tool", "call", tool, "--server", "notion", "--input", inputJson],
+    { encoding: "utf-8", timeout: 60000, maxBuffer: 16 * 1024 * 1024 }
+  );
+  const match = stdout.match(/Tool execution result:\n([\s\S]+)/);
+  if (!match) throw new Error(`Notion MCP ${tool} 回傳格式異常：${stdout.slice(0, 300)}`);
+  const parsed = JSON.parse(match[1].trim());
+  if (parsed?.error) throw new Error(`Notion MCP ${tool} 回傳錯誤：${JSON.stringify(parsed.error)}`);
+  return parsed;
 }
 
 // ========== 工具函數：建立單一 Notion 頁面，回傳 {id, url} ==========
-function createNotionPage(
+async function createNotionPage(
   parentPageId: string,
   title: string,
   content: string,
   icon: string
-): { id: string; url: string } {
-  const result = callNotionMcp("notion-create-pages", {
+): Promise<{ id: string; url: string }> {
+  const result = (await callNotionMcp("notion-create-pages", {
     parent: { page_id: parentPageId },
     pages: [{
       properties: { title },
       content,
       icon,
     }],
-  }) as { pages?: Array<{ id: string; url: string }> };
+  })) as { pages?: Array<{ id: string; url: string }> };
 
   const page = result?.pages?.[0];
   if (!page?.id) {

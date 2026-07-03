@@ -5,9 +5,13 @@
 //   - A3 開頭鉤子庫（108 筆 Hook 數據分析）
 //   - H 系列框架（爆款方法論知識庫）
 //   - 快取結構擴充：hookData + methodologyData
-import { execSync } from "child_process";
+import { execFile } from "child_process";
+import { promisify } from "util";
 import * as fs from "fs";
 import * as path from "path";
+import { ENV } from "./_core/env";
+
+const execFileAsync = promisify(execFile);
 
 // ========== 快取檔案路徑 ==========
 const CACHE_DIR = path.join(process.cwd(), ".notion-cache");
@@ -15,17 +19,18 @@ const CACHE_FILE = path.join(CACHE_DIR, "knowledge.json");
 const CACHE_TTL_MS = 60 * 60 * 1000; // 1 小時後視為過期
 
 // ========== Notion 頁面 ID 對照表 ==========
+// 來源：環境變數（未設定時採用預設值，見 server/_core/env.ts 與 .env.example）
 const NOTION_PAGE_IDS = {
   // L 系列：漏斗廣告腳本框架
-  L01: "37997a06-fae5-81d6-9837-c8b6c1dd242d", // 冷受眾廣告腳本
-  L02: "37997a06-fae5-8109-801f-d3835ed6fa6e", // 暖受眾再行銷腳本
-  L03: "37997a06-fae5-8191-9536-e1f3aff7c48e", // 熱受眾轉換腳本
+  L01: ENV.notionPageIdL01, // 冷受眾廣告腳本
+  L02: ENV.notionPageIdL02, // 暖受眾再行銷腳本
+  L03: ENV.notionPageIdL03, // 熱受眾轉換腳本
 
   // A3：108 筆開頭鉤子庫數據分析（腳本生成器核心數據）
-  A3_HOOK_DATA: "37997a06-fae5-815d-b375-ef4353b4d362",
+  A3_HOOK_DATA: ENV.notionPageIdA3HookData,
 
   // H 系列：爆款方法論知識庫
-  H_METHODOLOGY: "37b97a06-fae5-819e-b37a-f3f13be3f8c4", // 33｜短影音爆款方法論知識庫
+  H_METHODOLOGY: ENV.notionPageIdHMethodology, // 33｜短影音爆款方法論知識庫
 } as const;
 
 // ========== 快取資料結構 ==========
@@ -72,17 +77,17 @@ export interface NotionKnowledgeCache {
 // ========== 記憶體快取 ==========
 let memoryCache: NotionKnowledgeCache | null = null;
 
-// ========== 從 Notion 拉取單一頁面 ==========
-function fetchNotionPage(pageId: string): string {
+// ========== 從 Notion 拉取單一頁面（非同步 execFile，不經 shell）==========
+// JSON 直接作為 --input 的 argv 參數傳入 manus-mcp-cli，
+// 不阻塞 event loop、無 shell 逸出風險、也不需暫存檔。
+async function fetchNotionPage(pageId: string): Promise<string> {
   try {
-    const tmpFile = path.join("/tmp", `notion_fetch_${Date.now()}.json`);
-    fs.writeFileSync(tmpFile, JSON.stringify({ id: pageId }), "utf-8");
-    const result = execSync(
-      `manus-mcp-cli tool call notion-fetch --server notion --input "$(cat ${tmpFile})"`,
-      { encoding: "utf-8", timeout: 40000, shell: "/bin/bash" }
+    const { stdout } = await execFileAsync(
+      "manus-mcp-cli",
+      ["tool", "call", "notion-fetch", "--server", "notion", "--input", JSON.stringify({ id: pageId })],
+      { encoding: "utf-8", timeout: 40000, maxBuffer: 16 * 1024 * 1024 }
     );
-    fs.unlinkSync(tmpFile);
-    const match = result.match(/Tool execution result:\n([\s\S]+)/);
+    const match = stdout.match(/Tool execution result:\n([\s\S]+)/);
     if (!match) return "";
     const parsed = JSON.parse(match[1].trim());
     return parsed.text || "";
@@ -239,7 +244,7 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
     L03: NOTION_PAGE_IDS.L03,
   })) {
     console.log(`[NotionSync] 拉取 ${id}...`);
-    const text = fetchNotionPage(pageId);
+    const text = await fetchNotionPage(pageId);
     if (text) {
       funnelFrameworks[id] = parseLFramework(id, text, funnelMap[id]);
       console.log(`[NotionSync] ✅ ${id} 同步完成`);
@@ -251,7 +256,7 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
   // ===== 同步 A3 Hook 數據 =====
   let hookKnowledge: HookKnowledge | null = null;
   console.log("[NotionSync] 拉取 A3 Hook 數據...");
-  const hookText = fetchNotionPage(NOTION_PAGE_IDS.A3_HOOK_DATA);
+  const hookText = await fetchNotionPage(NOTION_PAGE_IDS.A3_HOOK_DATA);
   if (hookText) {
     hookKnowledge = parseHookKnowledge(hookText);
     console.log(`[NotionSync] ✅ A3 Hook 數據同步完成（${hookKnowledge.industryBestHooks.length} 筆產業配對）`);
@@ -262,7 +267,7 @@ export async function syncNotionKnowledge(force = false): Promise<NotionKnowledg
   // ===== 同步 H 系列方法論 =====
   let methodologyKnowledge: MethodologyKnowledge | null = null;
   console.log("[NotionSync] 拉取 H 系列方法論...");
-  const methodologyText = fetchNotionPage(NOTION_PAGE_IDS.H_METHODOLOGY);
+  const methodologyText = await fetchNotionPage(NOTION_PAGE_IDS.H_METHODOLOGY);
   if (methodologyText) {
     methodologyKnowledge = parseMethodologyKnowledge(methodologyText);
     console.log("[NotionSync] ✅ H 系列方法論同步完成");

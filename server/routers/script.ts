@@ -15,6 +15,7 @@ import {
   runDualEngine,
 } from "../scriptService";
 import type { EngineConfig } from "@shared/scriptTypes";
+import { ENGINE_PRESETS } from "@shared/scriptTypes";
 
 // ========== 輸入驗證 schema ==========
 const promptInputSchema = z.object({
@@ -43,14 +44,9 @@ const engineConfigSchema = z.object({
 /** 預設引擎配置（頂配），供未傳入 config 時使用。
  * 注意：此處特意保留頂配預設（premium）而非共用的 standard，
  * 因為從後端直接呼叫的情境（如測試、排程任務）應使用最高品質。
+ * 模型 ID 一律取自 shared/scriptTypes.ts（SSOT），不在此硬編碼。
  */
-const DEFAULT_CONFIG: EngineConfig = {
-  scatterVendor: "gpt",
-  scatterModel: "gpt-5",
-  integrateVendor: "claude",
-  integrateModel: "claude-opus-4-6",  // 對齊 shared scriptTypes CLAUDE_MODELS
-  preset: "premium",
-};
+const DEFAULT_CONFIG: EngineConfig = { ...ENGINE_PRESETS.premium.config };
 
 const engineModeSchema = z.enum(["dual", "claude_only", "gpt_only", "both"]);
 
